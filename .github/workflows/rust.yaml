@@ -1,0 +1,50 @@
+name: Build and Release
+
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build for Linux ARM64
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+      - name: Archive Linux ARM64
+        run: tar -czvf maimai-search-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/release maimai-search
+
+      - name: Build for Linux x86
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+      - name: Archive Linux x86
+        run: tar -czvf maimai-search-linux-x86.tar.gz -C target/x86_64-unknown-linux-gnu/release maimai-search
+
+      - name: Build for macOS ARM64
+        run: cargo build --release --target aarch64-apple-darwin
+      - name: Archive macOS ARM64
+        run: tar -czvf maimai-search-macos-arm64.tar.gz -C target/aarch64-apple-darwin/release maimai-search
+
+      - name: Build for Windows x86
+        run: cargo build --release --target i686-pc-windows-msvc
+      - name: Archive Windows x86
+        run: zip -r maimai-search-windows-x86.zip target/i686-pc-windows-msvc/release/maimai-search.exe
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: maimai-search
+          path: |
+            maimai-search-linux-arm64.tar.gz
+            maimai-search-linux-x86.tar.gz
+            maimai-search-macos-arm64.tar.gz
+            maimai-search-windows-x86.zip
