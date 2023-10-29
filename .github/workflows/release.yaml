@@ -8,40 +8,65 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-    permissions: write-all
-
+    name: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [ linux, macos, windows ]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: nightly
+            target: x86_64-unknown-linux-musl
+            archive-name: maimai-search-linux-amd64.tar.gz
+          - build: macos
+            os: macos-latest
+            rust: nightly
+            target: x86_64-apple-darwin
+            archive-name: maimai-search-macos-arm64.tar.gz
+          - build: windows
+            os: windows-2019
+            rust: nightly-x86_64-msvc
+            target: x86_64-pc-windows-msvc
+            archive-name: maimai-search-windows-amd64.7z
+      fail-fast: false
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Build
-        run: cargo build --verbose
-      - name: Run tests
-        run: cargo test --verbose
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: rust-toolchain
-        uses: actions-rs/toolchain@v1.0.6
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
+          toolchain: ${{ matrix.rust }}
           profile: minimal
-          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
 
-      - name: Build release
-        run: |
-          rustup target add x86_64-pc-windows-msvc
-          cargo build -r --target x86_64-pc-windows-msvc
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-
+      - name: Build binary
+        run: cargo build --verbose --release --target ${{ matrix.target }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUST_BACKTRACE: 1
 
+      - name: Strip binary (linux and macos)
+        if: matrix.build == 'linux' || matrix.build == 'macos'
+        run: strip "target/${{ matrix.target }}/release/maimai-search"
+
+      - name: Build archive
+        shell: bash
+        run: |
+          mkdir archive
+          cp LICENSE README.md archive/
+          cd archive
+          if [ "${{ matrix.build }}" = "windows" ]; then
+            cp "../target/${{ matrix.target }}/release/maimai-search.exe" ./
+            7z a "${{ matrix.archive-name }}" LICENSE README.md maimai-search.exe
+          else
+            cp "../target/${{ matrix.target }}/release/maimai-search" ./
+            tar -czf "${{ matrix.archive-name }}" LICENSE README.md maimai-search
+          fi
+      - name: Upload archive
+        uses: actions/upload-artifact@v1
         with:
-          tag_name: v${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          name: ${{ matrix.archive-name }}
+          path: archive/${{ matrix.archive-name }}
