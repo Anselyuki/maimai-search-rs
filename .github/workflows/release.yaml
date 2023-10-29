@@ -2,9 +2,8 @@ name: Build and Release
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    tags:
+      - 'v*'  # 推送标签时触发
 
 jobs:
   build:
@@ -72,9 +71,11 @@ jobs:
           path: archive/${{ matrix.archive-name }}
 
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref }}
           files: |
             archive/${{ matrix.archive-name }}
-          token: ${{ secrets.RELEASE_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
