@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'  # 推送标签时触发
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: build
