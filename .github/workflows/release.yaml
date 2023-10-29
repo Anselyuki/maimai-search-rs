@@ -28,10 +28,8 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - name: Set up MinGW
-        uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2.21.0
 
       - name: Build release
         run: |
