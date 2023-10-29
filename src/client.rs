@@ -52,19 +52,10 @@ impl DXProberClient {
     }
 
     /// 按照名称查询歌曲
-    pub fn search_songs_by_name(name: &str, partial: bool) -> Vec<Song> {
-        let sql = "SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title = ?;";
-        let mut songs = Vec::new();
-        match MaimaiDB::search_song(name, sql) {
-            None => {
-                if partial {
-                    // 执行分词
-                    let keywords = cut(name);
-                    // 模糊查询列表
-                    songs = search_songs_by_name_partial(keywords, name);
-                } else { println!("查询的歌曲[{}]找不到匹配项,尝试添加 --partial(-p) 开启模糊匹配", name) }
-            }
-            Some(song) => songs.push(song)
+    pub fn search_songs_by_name(name: &str) -> Vec<Song> {
+        let songs = search_songs_by_name_fuzzy(cut(name), name);
+        if songs.is_empty() {
+            println!("查询的歌曲[{}]找不到匹配项", name)
         }
         songs
     }
@@ -72,12 +63,16 @@ impl DXProberClient {
 
 /// 分词
 fn cut(song_name: &str) -> Vec<String> {
-    let strings = Jieba::new().cut_all(song_name);
-    strings.iter().map(|s| String::from(*s)).collect()
+    let keywords = Jieba::new().cut(song_name, true);
+    keywords.iter()
+        .map(|s| String::from(*s))
+        // 过滤掉仅包含空格的字符串
+        .filter(|s| !s.trim().is_empty())
+        .collect()
 }
 
 /// 模糊查询歌曲
-pub fn search_songs_by_name_partial(keywords: Vec<String>, name: &str) -> Vec<Song> {
+pub fn search_songs_by_name_fuzzy(keywords: Vec<String>, name: &str) -> Vec<Song> {
     let mut partial_song = HashMap::new();
     for keyword in keywords {
         let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title like '%{}%';", keyword);
@@ -102,7 +97,7 @@ fn similar_list_top5(partial_song: HashMap<String, Song>, name: &str) -> Vec<Son
     songs.sort_by(|a, b| a.0.cmp(&b.0));
     // 选择前5个匹配项
     songs.into_iter()
-        .take(5)
+        .take(3)
         .map(|(_, song)| song)
         .collect()
 }
