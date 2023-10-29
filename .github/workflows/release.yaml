@@ -77,4 +77,4 @@ jobs:
         with:
           files: |
             archive/${{ matrix.archive-name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN }}
