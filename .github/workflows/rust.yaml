@@ -2,52 +2,46 @@ name: Build and Release
 
 on:
   push:
-    branches:
-      - main
-  release:
-    types:
-      - created
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
+    permissions: write-all
+
 
     steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Rust
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: stable
-          override: true
 
-      - name: Build for Linux ARM64
-        run: cargo build --release --target aarch64-unknown-linux-gnu
-      - name: Archive Linux ARM64
-        run: tar -czvf maimai-search-linux-arm64.tar.gz -C target/aarch64-unknown-linux-gnu/release maimai-search
+      - name: Build release
+        run: |
+          rustup target add x86_64-pc-windows-gnu
+          cargo build -r --target x86_64-pc-windows-gnu
 
-      - name: Build for Linux x86
-        run: cargo build --release --target x86_64-unknown-linux-gnu
-      - name: Archive Linux x86
-        run: tar -czvf maimai-search-linux-x86.tar.gz -C target/x86_64-unknown-linux-gnu/release maimai-search
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
 
-      - name: Build for macOS ARM64
-        run: cargo build --release --target aarch64-apple-darwin
-      - name: Archive macOS ARM64
-        run: tar -czvf maimai-search-macos-arm64.tar.gz -C target/aarch64-apple-darwin/release maimai-search
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build for Windows x86
-        run: cargo build --release --target i686-pc-windows-msvc
-      - name: Archive Windows x86
-        run: zip -r maimai-search-windows-x86.zip target/i686-pc-windows-msvc/release/maimai-search.exe
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
         with:
-          name: maimai-search
-          path: |
-            maimai-search-linux-arm64.tar.gz
-            maimai-search-linux-x86.tar.gz
-            maimai-search-macos-arm64.tar.gz
-            maimai-search-windows-x86.zip
+          tag_name: v${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
