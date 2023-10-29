@@ -17,18 +17,18 @@ jobs:
           - build: linux
             os: ubuntu-latest
             rust: nightly
-            target: x86_64-unknown-linux-musl
-            archive-name: maimai-search-linux-amd64.tar.gz
+            target: x86_64-unknown-linux-gnu
+            archive-name: maimai-search-linux-gnu-amd64.tar.gz
           - build: macos
             os: macos-latest
             rust: nightly
             target: x86_64-apple-darwin
-            archive-name: maimai-search-macos-arm64.tar.gz
+            archive-name: maimai-search-macos-darwin-arm64.tar.gz
           - build: windows
             os: windows-2019
             rust: nightly-x86_64-msvc
             target: x86_64-pc-windows-msvc
-            archive-name: maimai-search-windows-amd64.7z
+            archive-name: maimai-search-windows-msvc-amd64.7z
       fail-fast: false
 
     steps:
