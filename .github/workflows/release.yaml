@@ -70,3 +70,11 @@ jobs:
         with:
           name: ${{ matrix.archive-name }}
           path: archive/${{ matrix.archive-name }}
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            archive/${{ matrix.archive-name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
