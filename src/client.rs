@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use indicatif::{ProgressBar, ProgressStyle};
 use jieba_rs::Jieba;
@@ -12,7 +12,7 @@ pub struct DXProberClient {}
 // 用于从服务器更新谱面信息
 impl DXProberClient {
     /// 更新谱面信息，删除表重新建比较快
-    pub fn update_data(url: String) {
+    pub fn update_data(url: &String) {
         println!("正在从[{}]下载谱面信息", url);
         MaimaiDB::re_create_table();
 
@@ -52,52 +52,48 @@ impl DXProberClient {
     }
 
     /// 按照名称查询歌曲
-    pub fn search_songs_by_name(name: &str) -> Vec<Song> {
-        let songs = search_songs_by_name_fuzzy(cut(name), name);
-        if songs.is_empty() {
-            println!("查询的歌曲[{}]找不到匹配项", name)
+    pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
+        let symbols: Vec<String> = vec!["!", " "].iter().map(|&s| s.to_string()).collect();
+        let stop_words: HashSet<String> = ["的", "了", "是", "在", "我", "你", "他"].iter().map(|&s| s.to_string()).collect();
+        let keywords: Vec<String> = Jieba::new().cut(name, true).iter()
+            .map(|s| String::from(*s))
+            // 删除停用词
+            .filter(|w| !stop_words.contains(w))
+            // 删除符号
+            .filter(|s| !symbols.contains(s))
+            .collect();
+        dbg!(&keywords);
+
+        let mut partial_song = HashMap::new();
+        for keyword in keywords {
+            let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title like '%{}%';", keyword);
+            for song in MaimaiDB::search_song_list(sql.as_str()) {
+                let id = song.clone().id;
+                partial_song.insert(id, song);
+            }
         }
+        let songs = Self::similar_list_top(partial_song, name, count);
+        if songs.is_empty() { println!("查询的歌曲[{}]找不到匹配项", name) }
         songs
     }
-}
 
-/// 分词
-fn cut(song_name: &str) -> Vec<String> {
-    let keywords = Jieba::new().cut(song_name, true);
-    keywords.iter()
-        .map(|s| String::from(*s))
-        // 过滤掉仅包含空格的字符串
-        .filter(|s| !s.trim().is_empty())
-        .collect()
-}
+    /// 模糊查询前 count 的匹配值
+    fn similar_list_top(partial_song: HashMap<String, Song>, name: &str, count: usize) -> Vec<Song> {
+        // 计算 Levenshtein 距离，并排序
+        let mut tuples: Vec<(usize, Song)> = partial_song.iter()
+            .map(|(_, song)| { (levenshtein(name, &*song.title), song.clone()) })
+            .filter(|tuple| (tuple.0 < 100)).collect();
+        tuples.sort_by(|a, b| a.0.cmp(&b.0));
 
-/// 模糊查询歌曲
-pub fn search_songs_by_name_fuzzy(keywords: Vec<String>, name: &str) -> Vec<Song> {
-    let mut partial_song = HashMap::new();
-    for keyword in keywords {
-        let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title like '%{}%';", keyword);
-        let songs = MaimaiDB::search_song_list(sql.as_str());
-        for song in songs {
-            partial_song.insert(song.clone().title, song);
+        for tuple in tuples.iter() {
+            let distance = &tuple.0;
+            let song = &tuple.1;
+            println!("[{}] {} - {}", distance, song.title, name);
         }
+        // 选择前5个匹配项
+        tuples.into_iter()
+            .take(count)
+            .map(|(_, song)| song)
+            .collect()
     }
-    // 模糊查询前 5 的匹配值
-    similar_list_top5(partial_song, name)
-}
-
-/// 模糊查询前 5 的匹配值
-fn similar_list_top5(partial_song: HashMap<String, Song>, name: &str) -> Vec<Song> {
-    // 计算 Levenshtein 距离，并排序
-    let mut songs: Vec<(usize, Song)> = partial_song.iter()
-        .map(|(title, song)| {
-            let distance = levenshtein(name, title);
-            (distance, song.clone())
-        }).collect();
-
-    songs.sort_by(|a, b| a.0.cmp(&b.0));
-    // 选择前5个匹配项
-    songs.into_iter()
-        .take(3)
-        .map(|(_, song)| song)
-        .collect()
 }

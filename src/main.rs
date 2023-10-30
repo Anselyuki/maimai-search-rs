@@ -4,57 +4,58 @@ extern crate clap;
 extern crate lazy_static;
 
 use std::path::PathBuf;
-use std::process::exit;
 
 use clap::Parser;
 use platform_dirs::AppDirs;
 
 use crate::client::DXProberClient;
 use crate::database::MaimaiDB;
-use crate::entity::Song;
 use crate::printer::Printer;
+use crate::profiles::Profile;
 
 mod client;
 mod entity;
 mod database;
 mod printer;
+mod profiles;
 
 lazy_static! {
     // 在 MacOS下遵守 XDG 规范,即创建的配置文件夹为 `~/.config/maimai-search`
     static ref CONFIG_PATH: PathBuf = AppDirs::new(Some("maimai-search"), true).unwrap().config_dir;
+    static ref PROFILE: Profile = profiles::Profile::new();
+    static ref DIFFICULT_NAME: Vec<String> = vec!["BASIC", "ADVANCED", "EXPERT", "MASTER", "Re:MASTER"].iter().map(|str| str.to_string()).collect();
 }
 
-/// maimai-search-rs
-///
 /// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
-/// 本项目使用 Rust 语言编写,用于查询 maimai DX 谱面信息，数据来源于 [https://www.diving-fish.com/]
 #[derive(Parser, Debug)]
+#[command(name = "maimai-search")]
+#[command(bin_name = "maimai-search")]
 #[command(author, about, version, verbatim_doc_comment)]
+#[command(next_line_help = false)]
 struct Args {
+    /// 检索信息(使用 --id 参数时为 id)
+    name: Option<String>,
+
+    /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
+    #[arg(short, long, default_value = "3")]
+    count: usize,
+    /// 开启详情查询
+    #[arg(short, long)]
+    detail: bool,
+    /// 使用 id 检索歌曲,使用 id 检索歌曲自动开启详情查询
+    #[arg(short, long)]
+    id: bool,
+    /// 使用 markdown 格式输出
+    #[arg(short, long)]
+    md: bool,
+
+    // 子命令枚举
     #[command(subcommand)]
     command: Option<SubCommands>,
-    #[arg(short, long, default_value = "https://www.diving-fish.com/api/maimaidxprober/music_data")]
-    url: String,
 }
-
 
 #[derive(Subcommand, Debug)]
 enum SubCommands {
-    /// 搜索谱面信息,如果同时传入 id 参数与 name 参数,将优先使用 id 进行精确查询
-    Search {
-        /// 根据名称搜索 (模糊检索)
-        #[arg(short, long)]
-        name: Option<String>,
-        /// 根据歌曲 ID 搜索 (精确)
-        #[arg(short, long)]
-        id: Option<String>,
-        /// 是否开启 markdown 输出
-        #[arg(short, long)]
-        md: bool,
-        /// 是否开启详情查询
-        #[arg(short, long)]
-        detail: bool,
-    },
     /// 更新谱面信息数据库
     Update {},
 }
@@ -63,37 +64,35 @@ fn main() {
     let args = Args::parse();
     MaimaiDB::init();
 
-    match args.command {
-        Some(SubCommands::Update {}) => {
-            DXProberClient::update_data(args.url);
+    dbg!(&args);
+    match args.name {
+        Some(name) => {
+            match args.id {
+                true => {
+                    match DXProberClient::search_songs_by_id(name.as_str()) {
+                        Some(song) => Printer::print_songs_detail(song),
+                        None => println!("未找到歌曲,可以尝试使用 --name 参数进行模糊搜索或者使用 update 更新数据库")
+                    }
+                }
+                false => {
+                    let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
+                    if args.detail {
+                        for song in songs {
+                            Printer::print_songs_detail(song);
+                        }
+                    } else {
+                        Printer::print_songs_info(songs);
+                    }
+                }
+            }
         }
-        Some(SubCommands::Search { name, id, md, detail }) => {
-            let songs = search(name, id);
-            Printer::print_detail(songs.clone());
+        None => {
+            match args.command {
+                Some(SubCommands::Update {}) => {
+                    DXProberClient::update_data(&PROFILE.url);
+                }
+                None => { println!("参数不能为空!"); }
+            }
         }
-        _ => {}
     }
 }
-
-/// 搜索谱面信息,如果同时传入 id 参数与 name 参数,将优先使用 id 进行精确查询
-fn search(name: Option<String>, id: Option<String>) -> Vec<Song> {
-// 根据名称搜索 (模糊检索)
-    let mut songs = Vec::new();
-    if let Some(id) = id {
-        match DXProberClient::search_songs_by_id(id.as_str()) {
-            Some(song) => songs.push(song),
-            _ => {}
-        }
-    } else if let Some(name) = name {
-        songs = DXProberClient::search_songs_by_name(name.as_str());
-    } else {
-        println!("搜索必须指定 --id(-i) 或者 --name(-n) 参数");
-    }
-
-    if songs.is_empty() {
-        println!("未找到歌曲,可以尝试使用 --name 参数进行模糊搜索或者使用 update 更新数据库");
-        exit(1);
-    }
-    songs
-}
-
