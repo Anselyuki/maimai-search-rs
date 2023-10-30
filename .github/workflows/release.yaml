@@ -14,27 +14,27 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [ x86_64-linux, x86_64-windows,x86_64-macos,aarch64-macos ]
+        build: [ x86_64-linux,x86_64-windows,x86_64-macos,aarch64-macos ]
         include:
-          - build: Linux(x86_64)
+          - build: x86_64-linux
             os: ubuntu-latest
             rust: nightly
             target: x86_64-unknown-linux-gnu
             archive-name: maimai-search-$GITHUB_REF_NAME-linux-x86_64.tar.gz
 
-          - build: MacOS(x86_64)
+          - build: x86_64-macos
             os: macos-latest
             rust: nightly
             target: x86_64-apple-darwin
             archive-name: maimai-search-$GITHUB_REF_NAME-macos-x86_64.tar.gz
 
-          - build: Windows(x86_64)
+          - build: x86_64-windows
             os: windows-latest
             rust: nightly-x86_64-msvc
             target: x86_64-pc-windows-msvc
             archive-name: maimai-search-$GITHUB_REF_NAME-windows-x86_64.7z
 
-          - build: MacOS(aarch64)
+          - build: aarch64-macos
             os: macos-latest
             rust: nightly
             target: aarch64-apple-darwin
