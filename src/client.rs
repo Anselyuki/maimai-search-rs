@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::process::exit;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use jieba_rs::Jieba;
@@ -119,7 +120,10 @@ impl DXProberClient {
             }
         }
         let songs = Self::similar_list_top(partial_song, name, count);
-        if songs.is_empty() { println!("查询的歌曲[{}]找不到匹配项", name) }
+        if songs.is_empty() {
+            println!("查询关键字[{}]找不到匹配项", name);
+            exit(1);
+        }
         songs
     }
 
