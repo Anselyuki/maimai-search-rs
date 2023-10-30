@@ -1,4 +1,5 @@
 [package]
+authors = ["AnselYuki"]
 name = "maimai-search"
 version = "0.1.0"
 edition = "2021"
@@ -12,10 +13,11 @@ lazy_static = "1.4.0"
 indicatif = "0.17.7"
 clap = { version = "4.4.7", features = ["derive"] }
 rusqlite = { version = "0.29.0", features = ["bundled"] }
-
+# 读取配置文件
+toml = "0.5"
 # 中文分词
 jieba-rs = "0.6.8"
 # 计算相似度
 levenshtein = "1.0.5"
-
+# 表格
 prettytable = "0.10.0"

@@ -24,18 +24,22 @@ lazy_static! {
     static ref CONFIG_PATH: PathBuf = AppDirs::new(Some("maimai-search"), true).unwrap().config_dir;
 }
 
+/// maimai-search-rs
+///
+/// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
+/// 本项目使用 Rust 语言编写,用于查询 maimai DX 谱面信息，数据来源于 [https://www.diving-fish.com/]
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(author, about, version, verbatim_doc_comment)]
 struct Args {
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Option<SubCommands>,
     #[arg(short, long, default_value = "https://www.diving-fish.com/api/maimaidxprober/music_data")]
     url: String,
 }
 
 
 #[derive(Subcommand, Debug)]
-enum Commands {
+enum SubCommands {
     /// 搜索谱面信息,如果同时传入 id 参数与 name 参数,将优先使用 id 进行精确查询
     Search {
         /// 根据名称搜索 (模糊检索)
@@ -60,10 +64,10 @@ fn main() {
     MaimaiDB::init();
 
     match args.command {
-        Some(Commands::Update {}) => {
+        Some(SubCommands::Update {}) => {
             DXProberClient::update_data(args.url);
         }
-        Some(Commands::Search { name, id, md, detail }) => {
+        Some(SubCommands::Search { name, id, md, detail }) => {
             let songs = search(name, id);
             Printer::print_detail(songs.clone());
         }
