@@ -1,9 +1,9 @@
 use std::fs;
 
 use rusqlite::{Connection, params, Row};
+use crate::client::{BasicInfo, Chart, Song};
 
 use crate::CONFIG_PATH;
-use crate::entity::{BasicInfo, Chart, Song};
 
 pub struct MaimaiDB {}
 

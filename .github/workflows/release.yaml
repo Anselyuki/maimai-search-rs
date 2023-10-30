@@ -14,28 +14,36 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [ linux, macos, windows ]
+        build: [ Linux(x86_64), MacOS(x86_64), Windows(x86_64) ,MacOS(aarch64) ]
         include:
-          - build: linux
+          - build: Linux(x86_64)
             os: ubuntu-latest
             rust: nightly
             target: x86_64-unknown-linux-gnu
-            archive-name: maimai-search-linux-gnu-amd64.tar.gz
-          - build: macos
+            archive-name: maimai-search-${{ github.ref }}-linux-x86_64.tar.gz
+
+          - build: MacOS(x86_64)
             os: macos-latest
             rust: nightly
             target: x86_64-apple-darwin
-            archive-name: maimai-search-macos-darwin-arm64.tar.gz
-          - build: windows
-            os: windows-2019
+            archive-name: maimai-search-${{ github.ref }}-macos-x86_64.tar.gz
+
+          - build: Windows(x86_64)
+            os: windows-latest
             rust: nightly-x86_64-msvc
             target: x86_64-pc-windows-msvc
-            archive-name: maimai-search-windows-msvc-amd64.7z
+            archive-name: maimai-search-${{ github.ref }}-windows-x86_64.7z
+
+          - build: MacOS(aarch64)
+            os: macos-latest
+            rust: nightly
+            target: aarch64-apple-darwin
+            archive-name: maimai-search-${{ github.ref }}-macos-aarch64.tar.gz
       fail-fast: false
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
