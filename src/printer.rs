@@ -1,9 +1,10 @@
 use std::cmp::max;
+use std::collections::HashMap;
 
 use prettytable::{Cell, format, row, Row, Table};
+use crate::client::Song;
 
 use crate::DIFFICULT_NAME;
-use crate::entity::Song;
 
 pub struct Printer {}
 
@@ -21,7 +22,7 @@ impl Printer {
 
 
         for difficult in &DIFFICULT_NAME[..chart_count] {
-            header.add_cell(Cell::new(&*difficult));
+            header.add_cell(difficult.clone());
         }
         table.set_titles(header);
 
@@ -60,37 +61,78 @@ impl Printer {
     }
 
     /// 输出单首歌曲的详细信息
-    pub fn print_songs_detail(song: Song) {
-        let mut table = Table::new();
-        let chart_title = row!["难度", "等级", "COMBO", "TAP", "HOLD", "SLIDE", "BREAK", "谱面作者"];
-
-        // 构建基本信息
-        println!("乐曲情报");
-
-        table.set_titles(row!["ID","乐曲标题","类型","分区","BPM","演唱/作曲"]);
-        let basic_info = song.basic_info;
-        table.add_row(row![format!("{:5}", song.id), song.title,song.song_type,basic_info.genre,basic_info.bpm,basic_info.artist]);
-        table.set_format(*format::consts::FORMAT_BOX_CHARS);
+    pub fn print_song_detail_single(song: Song) {
+        println!("[乐曲情报]");
+        let mut table = Self::song_basic_info_title();
+        table.add_row(row![format!("{:5}", song.id), song.title,song.song_type,song.basic_info.genre,song.basic_info.bpm,song.basic_info.artist]);
         table.printstd();
+        Self::print_chart_info(song);
+    }
 
-        // 每张谱面的详细信息
-        table = Table::new();
-        println!("standard 谱面情报");
+    /// 歌曲基础信息表头
+    fn song_basic_info_title() -> Table {
+        let mut table = Table::new();
+        table.set_titles(row!["ID","乐曲标题","类型","分区","BPM","演唱/作曲"]);
+        table.set_format(*format::consts::FORMAT_BOX_CHARS);
+        return table;
+    }
+
+    /// 每张谱面的详细信息
+    fn print_chart_info(song: Song) {
+        let mut table = Table::new();
+        let mut title = row!["难度", "等级", "COMBO", "TAP", "HOLD", "SLIDE", "BREAK", "谱面作者"];
+        println!("[{}谱面情报]", {
+            match song.song_type.as_str() {
+                "DX" => {
+                    title.insert_cell(6, Cell::new("TOUCH"));
+                    "DX"
+                }
+                "SD" => { "标准" }
+                _ => { "未知" }
+            }
+        });
+        table.set_titles(title);
         // 构建谱面信息
-        // 谱面数量
-        table.set_titles(chart_title);
         for ((chart, level), difficult) in song.charts.iter().zip(song.level.iter()).zip(DIFFICULT_NAME.iter()) {
-            let mut table_data = row![difficult,level];
+            let mut table_data = Row::empty();
+            table_data.add_cell(difficult.clone());
+            table_data.add_cell(Cell::new(level));
+
+            // 添加谱面的详细信息
             let notes = &chart.notes;
             table_data.add_cell(Cell::new(&*format!("{}", notes.iter().sum::<u32>())));
             for note in notes {
                 table_data.add_cell(Cell::new(&*format!("{}", note)));
             }
+            // 添加谱面作者
             table_data.add_cell(Cell::new(&chart.charter));
             table.add_row(table_data);
         };
 
         table.set_format(*format::consts::FORMAT_BOX_CHARS);
         table.printstd();
+    }
+
+    /// 批量输出歌曲的详细信息
+    pub fn print_songs_detail_multi(songs: Vec<Song>) {
+        let mut song_map: HashMap<String, Vec<Song>> = HashMap::new();
+        for song in songs {
+            let title = song.clone().title;
+            let mut song_vec = song_map.get(&title).unwrap_or(&vec![]).to_vec();
+            song_vec.push(song);
+            song_map.insert(title, song_vec);
+        }
+
+        for song_vec in song_map.values() {
+            println!("[乐曲情报]");
+            let mut table = Self::song_basic_info_title();
+            for song in song_vec {
+                table.add_row(row![format!("{:5}", song.id), song.title,song.song_type,song.basic_info.genre,song.basic_info.bpm,song.basic_info.artist]);
+            }
+            table.printstd();
+            for song in song_vec {
+                Self::print_chart_info(song.clone());
+            }
+        }
     }
 }
