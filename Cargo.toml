@@ -3,6 +3,7 @@ authors = ["AnselYuki"]
 name = "maimai-search"
 version = "0.1.2"
 edition = "2021"
+repository = "https://github.com/Anselyuki/maimai-search-rs"
 
 [dependencies]
 serde = { version = "1.0.190", features = ["derive"] }
@@ -25,3 +26,9 @@ prettytable = "0.10.0"
 # yaml 配置文件读取
 serde_yaml = "0.8.26"
 schemars = "0.8.15"
+
+# 打开系统中的文件
+open = "2.1.3"
+
+exitcode = "1.1.2"
+colored = "1.9.4"

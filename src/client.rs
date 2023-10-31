@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::process::exit;
 
+use colored::Colorize;
 use indicatif::{ProgressBar, ProgressStyle};
 use jieba_rs::Jieba;
 use levenshtein::levenshtein;
@@ -64,13 +65,13 @@ pub struct BasicInfo {
 impl DXProberClient {
     /// 更新谱面信息，删除表重新建比较快
     pub fn update_data(url: &String) {
-        println!("正在从[{}]下载谱面信息", url);
+        println!("{}: 正在从[{}]下载谱面信息", "info".green().bold(), url);
         MaimaiDB::re_create_table();
 
         let songs = match reqwest::blocking::get(url) {
             Ok(response) => { response.json::<Vec<Song>>() }
             Err(error) => panic!("获取服务器信息出错:{:?}", error)
-        }.expect("Json 解析出错");
+        }.unwrap();
 
         let progress_bar = ProgressBar::new(songs.len() as u64);
 
@@ -93,18 +94,21 @@ impl DXProberClient {
             ]).unwrap();
             progress_bar.inc(1);
         }
-        progress_bar.finish_with_message("更新成功");
+        progress_bar.finish();
     }
 
     /// 按照 id 查询歌曲
-    pub fn search_songs_by_id(id: &str) -> Option<Song> {
-        let sql = "SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where id = ?;";
-        MaimaiDB::search_song(id, sql)
+    pub fn search_songs_by_id(id: usize) -> Vec<Song> {
+        let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where id = {};", id);
+        match MaimaiDB::search_song(sql) {
+            None => { Vec::new() }
+            Some(song) => { vec![song] }
+        }
     }
 
     /// 按照名称查询歌曲
     pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
-        let stop_words: HashSet<String> = ["的", " ", "!"].iter().map(|&s| s.to_string()).collect();
+        let stop_words: HashSet<String> = ["的", " ", "!", "\"", "“", "”", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=", "+", "[", "]", "{", "}", ";", ":", "<", ">", ",", ".", "/", "?"].iter().map(|&s| s.to_string()).collect();
         let keywords: Vec<String> = Jieba::new().cut(name, true).iter()
             .map(|s| String::from(*s))
             // 删除停用词
@@ -121,8 +125,8 @@ impl DXProberClient {
         }
         let songs = Self::similar_list_top(partial_song, name, count);
         if songs.is_empty() {
-            println!("查询关键字[{}]找不到匹配项", name);
-            exit(1);
+            println!("{}: 查询关键字[{}]找不到匹配项", "warning".red().bold(), name);
+            exit(exitcode::OK);
         }
         songs
     }

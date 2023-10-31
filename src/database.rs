@@ -1,8 +1,8 @@
 use std::fs;
 
 use rusqlite::{Connection, params, Row};
-use crate::client::{BasicInfo, Chart, Song};
 
+use crate::client::{BasicInfo, Chart, Song};
 use crate::CONFIG_PATH;
 
 pub struct MaimaiDB {}
@@ -47,10 +47,10 @@ impl MaimaiDB {
     }
 
     /// 按照传入的 SQL 查询歌曲,预期返回值为 1
-    pub fn search_song(param: &str, sql: &str) -> Option<Song> {
+    pub fn search_song(sql: String) -> Option<Song> {
         let connection = MaimaiDB::get_connection();
-        let mut statement = connection.prepare(sql).unwrap();
-        statement.query_row(params![param], parse_row).ok()
+        let mut statement = connection.prepare(sql.as_str()).unwrap();
+        statement.query_row(params![], parse_row).ok()
     }
 
     /// 按照传入的 SQL 查询歌曲列表

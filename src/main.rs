@@ -6,19 +6,20 @@ extern crate lazy_static;
 use std::path::PathBuf;
 
 use clap::Parser;
+use colored::Colorize;
 use platform_dirs::AppDirs;
-use prettytable::Attr;
-use prettytable::Cell;
-use prettytable::color;
+use prettytable::{Attr, Cell};
+use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
+use prettytable::format::{FormatBuilder, LinePosition, LineSeparator, TableFormat};
 
 use crate::client::DXProberClient;
 use crate::database::MaimaiDB;
-use crate::printer::Printer;
+use crate::printer_handler::PrinterHandler;
 use crate::profiles::Profile;
 
 mod client;
 mod database;
-mod printer;
+mod printer_handler;
 mod profiles;
 
 lazy_static! {
@@ -26,10 +27,14 @@ lazy_static! {
     static ref CONFIG_PATH: PathBuf = AppDirs::new(Some("maimai-search"), true).unwrap().config_dir;
     static ref PROFILE: Profile = profiles::Profile::new();
     static ref DIFFICULT_NAME: Vec<Cell> = vec!["BASIC", "ADVANCED", "EXPERT", "MASTER", "Re:MASTER"].iter()
-        .zip(&[color::GREEN, color::YELLOW, color::RED, color::BRIGHT_MAGENTA, color::BRIGHT_WHITE])
+        .zip(&[GREEN, YELLOW, RED, MAGENTA, WHITE])
         .map(|(difficult, column_color)| Cell::new(difficult).with_style(Attr::ForegroundColor(*column_color)))
         .collect();
-    static ref LAUNCH_PATH: PathBuf = std::env::current_exe().unwrap();
+    static ref LAUNCH_PATH: PathBuf = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
+    static ref MARKDOWN_TABLE_STYLE: TableFormat = FormatBuilder::new()
+        .column_separator('|').borders('|')
+        .separators(&[LinePosition::Title], LineSeparator::new('-', '|', '|', '|'))
+        .padding(1, 1).build();
 }
 
 /// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
@@ -37,62 +42,70 @@ lazy_static! {
 #[command(name = "maimai-search", bin_name = "maimai-search")]
 #[command(author, about, version, next_line_help = false)]
 struct Args {
-    /// 检索信息(使用 --id 参数时为 id);
-    /// 如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
+    // 子命令枚举
+    #[command(subcommand)]
+    command: Option<SubCommands>,
+    /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
     name: Option<String>,
-
     /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
     #[arg(short, long, default_value = "3")]
     count: usize,
     /// 开启详情查询
     #[arg(short, long)]
     detail: bool,
-    /// 使用 id 检索歌曲,使用 id 检索歌曲自动开启详情查询
-    #[arg(short, long)]
-    id: bool,
     /// 使用 markdown 格式输出
     #[arg(short, long)]
-    md: bool,
-
-    // 子命令枚举
-    #[command(subcommand)]
-    command: Option<SubCommands>,
+    markdown: bool,
+    /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
+    #[arg(short, long)]
+    output: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
 enum SubCommands {
     /// 更新谱面信息数据库
     Update {},
+    /// 使用 ID 进行检索，如：maimai-search id [ID]
+    Id {
+        /// 检索信息(使用 --id 参数时为 id),如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
+        id: usize,
+        /// 使用 markdown 格式输出
+        #[arg(short, long)]
+        markdown: bool,
+        /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
+        #[arg(short, long)]
+        output: Option<String>,
+        /// 开启详情查询
+        #[arg(short, long)]
+        detail: bool,
+    },
+    /// 配置文件管理,详情请运行 maimai-search config --help
+    Config {
+        /// 在配置文件夹内创建默认配置文件
+        #[arg(short, long)]
+        default: bool,
+    },
 }
 
 fn main() {
     let args = Args::parse();
     MaimaiDB::init();
 
-    match args.name {
-        Some(name) => match args.id {
-            true => match DXProberClient::search_songs_by_id(name.as_str()) {
-                Some(song) => Printer::print_song_detail_single(song),
-                None => println!(
-                    "未找到歌曲,可以尝试添加更多的关键字或者使用 update 更新数据库"
-                ),
-            },
-            false => {
+    // 主要处理命令触发的逻辑
+    match args.command {
+        Some(SubCommands::Update {}) => DXProberClient::update_data(&PROFILE.url),
+        Some(SubCommands::Id { id, markdown, output, detail }) => {
+            let songs = DXProberClient::search_songs_by_id(id);
+            PrinterHandler::new(songs, detail, markdown, output);
+        }
+        Some(SubCommands::Config { default }) => if default { Profile::create_default() },
+        // 子命令为空时,表示使用主功能: 按照名称查询
+        None => match args.name {
+            Some(name) => {
                 let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
-                if args.detail {
-                    Printer::print_songs_detail_multi(songs);
-                } else {
-                    Printer::print_songs_info(songs);
-                }
+                PrinterHandler::new(songs, args.detail, args.markdown, args.output);
             }
-        },
-        None => match args.command {
-            Some(SubCommands::Update {}) => {
-                DXProberClient::update_data(&PROFILE.url);
-            }
-            None => {
-                println!("参数不能为空!");
-            }
+            None => println!("{}: name 参数不能为空!", "error".red().bold())
         },
     }
 }
