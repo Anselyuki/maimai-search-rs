@@ -8,10 +8,12 @@ use std::string::ToString;
 use std::vec::Vec;
 
 use colored::Colorize;
-use prettytable::{Cell, format, row, Row, Table};
+use prettytable::{Cell, row, Row, Table};
+use prettytable::format::consts::FORMAT_BOX_CHARS;
 
-use crate::{DIFFICULT_NAME, LAUNCH_PATH, MARKDOWN_TABLE_STYLE};
+use crate::{DIFFICULT_NAME, LAUNCH_PATH};
 use crate::client::Song;
+use crate::MARKDOWN_TABLE_STYLE;
 
 pub struct PrinterHandler {}
 
@@ -176,15 +178,19 @@ impl PrinterHandler {
             true => { TableUtil::get_songs_detail(songs, markdown) }
             false => { TableUtil::get_songs(songs, markdown) }
         };
-        if markdown {
-            match output {
-                // 写入 md 文件
-                Some(filename) => MarkdownPrinter::write_file(filename, table_vec),
-                // 输出 md 格式的表格在命令行
-                None => ConsolePrinter::print_std(table_vec, markdown)
+        match output {
+            Some(filename) => {
+                match detail {
+                    // 写入 md 文件
+                    true => MarkdownPrinter::write_file(filename, table_vec),
+                    // 输出 md 格式的表格在命令行
+                    false => {
+                        eprintln!("{}: 未指定输出格式! 使用 --markdown(-md) 开启 markdown 输出", "warning".yellow().bold());
+                        ConsolePrinter::print_std(table_vec, markdown)
+                    }
+                }
             }
-        } else {
-            ConsolePrinter::print_std(table_vec, false);
+            None => ConsolePrinter::print_std(table_vec, false)
         }
     }
 }
@@ -202,7 +208,7 @@ impl ConsolePrinter {
                 println!("{} {}\n", heading, song_table.info);
                 table.set_format(*MARKDOWN_TABLE_STYLE);
             } else {
-                table.set_format(*format::consts::FORMAT_BOX_CHARS);
+                table.set_format(*FORMAT_BOX_CHARS);
             }
             table.printstd();
         }
