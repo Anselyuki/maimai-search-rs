@@ -105,7 +105,22 @@ fn main() {
                 let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
                 PrinterHandler::new(songs, args.detail, args.markdown, args.output);
             }
-            None => println!("{}: name 参数不能为空!", "error".red().bold())
+            None => {
+                get_exist_args(&args);
+                eprintln!("{}: [NAME] 参数为空,请使用 --help 或者 -h 查看详情", "error".red().bold());
+            }
         },
     }
+}
+
+/// 定义需要处理的字段和对应的字符串表示
+fn get_exist_args(args: &Args) {
+    let fields_to_collect = [
+        (args.detail, "detail"), (args.markdown, "markdown"),
+        (args.output.is_some(), &format!("output = {}", args.output.clone().unwrap_or("".to_string()))),
+    ];
+    let collected_args: Vec<_> = fields_to_collect.iter()
+        .filter(|(flag, _)| *flag)
+        .map(|(_, name)| name).collect();
+    println!("{}: 检测到不能单独使用的参数: {:?}", "warning".yellow().bold(), collected_args);
 }
