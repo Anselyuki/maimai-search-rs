@@ -64,7 +64,11 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum SubCommands {
     /// 更新谱面信息数据库
-    Update {},
+    Update {
+        /// 强制更新
+        #[arg(short, long)]
+        force: bool,
+    },
     /// 使用 ID 进行检索，如：maimai-search id [ID]
     Id {
         /// 检索信息(使用 --id 参数时为 id),如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
@@ -93,7 +97,7 @@ fn main() {
 
     // 主要处理命令触发的逻辑
     match args.command {
-        Some(SubCommands::Update {}) => DXProberClient::update_data(&PROFILE.url),
+        Some(SubCommands::Update { force }) => DXProberClient::update_data(&PROFILE.url, force),
         Some(SubCommands::Id { id, markdown, output, detail }) => {
             let songs = DXProberClient::search_songs_by_id(id);
             PrinterHandler::new(songs, detail, markdown, output);

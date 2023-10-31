@@ -11,6 +11,7 @@ use crate::CONFIG_PATH;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Profile {
     pub url: String,
+    pub resource_url: String,
 }
 
 impl Profile {
@@ -73,6 +74,7 @@ impl Profile {
     fn default_profile() -> Profile {
         Profile {
             url: "https://www.diving-fish.com/api/maimaidxprober/music_data".to_string(),
+            resource_url: "https://www.diving-fish.com/maibot/static.zip".to_string(),
         }
     }
 }
