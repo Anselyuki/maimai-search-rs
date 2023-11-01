@@ -55,7 +55,7 @@ jobs:
           tags=$(git tag | grep -E $tag_pattern | sort -Vr )
           
           PREVIOUS_TAG=$( echo "$tags" | head -n2| tail -n1 )
-          git log $PREVIOUS_TAG...$LATEST_TAG --pretty=format:"%h - %s " -5 > commit.tmp
+          git log $PREVIOUS_TAG...$LATEST_TAG --pretty=format:"%h - %s |" -5 > commit.tmp
           paste -s -d '|' commit.tmp > commit.log
           echo "::set-output name=message::$(cat commit.log)"
 
