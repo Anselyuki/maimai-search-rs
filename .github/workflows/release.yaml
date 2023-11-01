@@ -57,7 +57,7 @@ jobs:
           echo "===== Commit file ====="
           cat commit.log
           echo "====== files end ======"
-          echo "COMMIT_MESSAGE=$(cat commit.log)" >> $GITHUB_ENV
+          echo "COMMIT_MESSAGE=$(cat commit.log | sed 's/[:()]/_/g')" >> $GITHUB_ENV
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.0
