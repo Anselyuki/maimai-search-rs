@@ -44,9 +44,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get latest commit message
+      - name: Get latest tags
+        id: get_latest_tags
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1))
+          echo "::set-output name=latest_tag::$LATEST_TAG"
+          echo "::set-output name=previous_tag::$PREVIOUS_TAG"
+
+      - name: Get commit messages
         id: commit_message
-        run: echo "::set-output name=message::$(git log --format='%B' -n 1 ${{ github.sha }})"
+        run: |
+          git log --pretty=format:"%h - %s (%an)" ${{ steps.get_latest_tags.outputs.previous_tag }}...${{ steps.get_latest_tags.outputs.latest_tag }} > commit.log
+          echo "::set-output name=message::$(cat commit.log)"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.0

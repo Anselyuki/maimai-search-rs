@@ -12,7 +12,7 @@ use prettytable::{Attr, Cell};
 use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator, TableFormat};
 
-use crate::client::DXProberClient;
+use crate::client::{DXProberClient, Song};
 use crate::database::MaimaiDB;
 use crate::printer_handler::PrinterHandler;
 use crate::profiles::Profile;
@@ -65,8 +65,10 @@ struct Args {
 #[derive(Subcommand, Debug)]
 enum SubCommands {
     /// 更新谱面信息数据库
-    Update {
-        /// 强制更新
+    Update {},
+    /// 更新资源文件
+    Resource {
+        /// 强制更新资源文件
         #[arg(short, long)]
         force: bool,
     },
@@ -99,15 +101,12 @@ fn main() {
 
     // 主要处理命令触发的逻辑
     match args.command {
-        Some(SubCommands::Update { force }) => DXProberClient::update_data(&PROFILE.remote.json_url, force),
+        Some(SubCommands::Update {}) => DXProberClient::update_data(),
+        Some(SubCommands::Resource { force }) => DXProberClient::update_resource(force),
         Some(SubCommands::Id { ids, markdown, output, detail }) => {
-            let mut songs = vec![];
-            for id in ids {
-                let results = DXProberClient::search_songs_by_id(id);
-                for song in results {
-                    songs.push(song);
-                }
-            }
+            let songs = ids.iter()
+                .flat_map(|id| DXProberClient::search_songs_by_id(*id))
+                .collect::<Vec<Song>>();
             PrinterHandler::new(songs, detail, markdown, output);
         }
         Some(SubCommands::Config { default }) => if default { Profile::create_default() },

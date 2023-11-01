@@ -8,11 +8,12 @@ use std::string::ToString;
 use std::vec::Vec;
 
 use colored::Colorize;
+use log::{error, info, warn};
 use prettytable::{Cell, row, Row, Table};
 use prettytable::format::consts::FORMAT_BOX_CHARS;
 
-use crate::{DIFFICULT_NAME, LAUNCH_PATH};
-use crate::client::Song;
+use crate::{CONFIG_PATH, DIFFICULT_NAME, LAUNCH_PATH, PROFILE};
+use crate::client::{DXProberClient, Song};
 use crate::MARKDOWN_TABLE_STYLE;
 
 pub struct PrinterHandler {}
@@ -55,13 +56,19 @@ impl TableUtil {
 
         // 构建表格行
         for song in &songs {
-
-
             let title = match markdown {
                 true => { format!("`{}`{}", song.song_type, song.title) }
                 false => { format!("[{}]{}", song.song_type, song.title) }
             };
-            let mut table_data = row![song.id,title,song.basic_info.genre,song.basic_info.bpm];
+
+            let mut table_data = match markdown {
+                true => {
+                    let pic_url = Self::get_song_picture(&song);
+                    row![pic_url,song.id,title,song.basic_info.genre,song.basic_info.bpm]
+                }
+                false => { row![song.id,title,song.basic_info.genre,song.basic_info.bpm] }
+            };
+
             for (ds, level) in song.ds.iter().zip(song.level.iter()) {
                 let level_str = match Self::get_level_str(ds, level) {
                     Some(value) => value,
@@ -95,7 +102,7 @@ impl TableUtil {
                 let info = format!("乐曲情报:`{}`", title);
                 let mut table = Table::new();
                 table.set_titles(row!["谱面图片","ID","乐曲标题","类型","分区","BPM","演唱/作曲"]);
-
+                dbg!(&songs);
                 // 获取 md 内嵌的 图片字段
                 for song in songs.clone() {
                     let pic_url = Self::get_song_picture(&song);
@@ -129,8 +136,17 @@ impl TableUtil {
 
     /// 获得图片URL
     fn get_song_picture(song: &Song) -> String {
-        let pic_url = format!("![{}](https://www.diving-fish.com/covers/{:0>5}.png)", &song.title, &song.id);
-        pic_url
+        let config = &PROFILE.markdown.picture;
+        // 如果开启了本地化图片
+        if config.local {
+            let resource_path = CONFIG_PATH.join("resource");
+            // 资源文件夹不存在,执行一次资源更新
+            if !resource_path.exists() {
+                warn!("资源文件夹不存在,执行资源文件更新");
+                DXProberClient::update_resource(false);
+            }
+        }
+        format!("![{}]({}{:0>5}.png)", &song.title, config.prefix_url, &song.id)
     }
 
     /// 获取等级字符串
@@ -158,7 +174,10 @@ impl TableUtil {
                     "DX谱面情报".to_string()
                 }
                 "SD" => { "标准谱面情报".to_string() }
-                _ => { panic!("数据库难度列错误") }
+                _ => {
+                    error!("数据库难度列错误");
+                    exit(exitcode::DATAERR)
+                }
             };
         table.set_titles(title);
         // 构建谱面信息
@@ -196,7 +215,7 @@ impl PrinterHandler {
                     true => MarkdownPrinter::write_file(filename, table_vec),
                     // 输出 md 格式的表格在命令行,提示
                     false => {
-                        println!("{}: 未指定 markdown 输出! 使用 --markdown(-md) 开启 markdown 输出", "warning".yellow().bold());
+                        warn!("{}: 未指定 markdown 输出! 使用 --markdown(-md) 开启 markdown 输出", "warning".yellow().bold());
                         ConsolePrinter::print_std(table_vec, markdown)
                     }
                 }
@@ -253,9 +272,9 @@ impl MarkdownPrinter {
             writeln!(file, "{} {}\n", heading, song_table.info).unwrap();
             writeln!(file, "{}", table_str).unwrap();
         }
-        println!("{}: 文件写入结束，文件路径:[{}]", "info".green().bold(), path.display());
+        info!("文件成功写入:[{}]",  path.display());
         if let Err(error) = open::that(path) {
-            eprintln!("{}: 无法打开文件: {:?}", "error".red().bold(), error);
+            error!("无法打开文件: {:?}", error);
         }
     }
 
@@ -265,24 +284,14 @@ impl MarkdownPrinter {
     /// - 如果输入文件没有拓展名，则为其添加
     /// - 如果输入文件携带非 md 的扩展名，则报错
     fn add_md_extension(filename: String) -> PathBuf {
-        let file_path = &LAUNCH_PATH.join(filename);
-        let path = file_path.as_path();
-        match path.extension() {
-            Some(ext) => {
-                if ext == "md" {
-                    print!("{}: 将创建文件{:?}...", "info".green().bold(), path.file_name().unwrap());
-                    return path.to_owned();
-                } else {
-                    eprintln!("{}: 文件后缀不是\".md\",获取到\".{}\",可以选择不指定后缀名,或指定\".md\"后缀名", "error".red().bold(), ext.to_str().unwrap());
-                    exit(exitcode::USAGE);
-                }
-            }
-            None => {
-                let mut new_path = PathBuf::from(path);
-                new_path.set_extension("md");
-                println!("{}: 将创建文件{:?}", "info".green().bold(), new_path.file_name().unwrap());
-                return new_path;
-            }
+        let path = LAUNCH_PATH.join(filename);
+        if let Some(ext) = path.extension() {
+            if ext.eq("md") { return path.to_owned(); }
+            error!("文件后缀不是\".md\",获取到\".{}\",可以选择不指定后缀名,或指定\".md\"后缀名",  ext.to_str().unwrap());
+            exit(exitcode::USAGE);
         }
+        let mut new_path = PathBuf::from(path);
+        new_path.set_extension("md");
+        return new_path;
     }
 }
