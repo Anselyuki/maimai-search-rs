@@ -49,13 +49,7 @@ jobs:
         shell: bash
         run: |
           git fetch --tags
-          LATEST_TAG=$(git describe --tags --abbrev=0)
-          
-          tag_pattern="^[0-9]+\.[0-9]+\.[0-9]+$"
-          tags=$(git tag | grep -E $tag_pattern | sort -Vr )
-          
-          PREVIOUS_TAG=$( echo "$tags" | head -n2| tail -n1 )
-          echo "::set-output name=message::$(git log $PREVIOUS_TAG...$LATEST_TAG --pretty=format:"%h - %s " -5)"
+          echo "::set-output name=message::$(git log -5)"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.0
