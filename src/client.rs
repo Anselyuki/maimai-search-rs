@@ -6,7 +6,6 @@ use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
-use colored::Colorize;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use jieba_rs::Jieba;
 use levenshtein::levenshtein;
@@ -73,7 +72,8 @@ pub struct BasicInfo {
 // 用于从服务器更新谱面信息
 impl DXProberClient {
     /// 更新谱面信息和下载静态文件
-    pub fn update_data(url: &String, force: bool) {
+    pub fn update_data() {
+        let url = &PROFILE.remote.json_url;
         info!("正在从[{}]下载谱面信息", url);
         // 删除原有的表格重建会较快
         MaimaiDB::re_create_table();
@@ -106,7 +106,6 @@ impl DXProberClient {
             progress_bar.inc(1);
         }
         progress_bar.finish();
-        DXProberClient::get_resource(force);
     }
 
     /// 按照 id 查询歌曲
@@ -158,7 +157,7 @@ impl DXProberClient {
     }
 
     /// 获取资源文件并解压
-    fn get_resource(force: bool) {
+    pub fn update_resource(force: bool) {
         // 默认的文件名为 static.zip
         let resource_zip = &CONFIG_PATH.join("static.zip");
         let client = reqwest::blocking::Client::new();
@@ -225,11 +224,11 @@ impl DXProberClient {
     ///
     /// 资源文件路径可以在配置文件内配置
     fn download_resource(resource_zip: &PathBuf, response: Response) {
-        println!("\n{}: 正在从[{}]下载资源文件", "info".green().bold(), &PROFILE.remote.resource_url);
+        info!("正在从[{}]下载资源文件", &PROFILE.remote.resource_url);
 
         let total_size = match response.content_length() {
             None => {
-                eprintln!("{}: 下载文件时出现问题,获取的文件大小为 0", "error".red().bold());
+                error!("下载文件时出现问题,获取的文件大小为 0");
                 exit(exitcode::IOERR)
             }
             Some(size) => size
@@ -239,7 +238,7 @@ impl DXProberClient {
         let mut zip_file = match File::create(resource_zip) {
             Ok(file) => file,
             Err(error) => {
-                eprintln!("{}: 创建文件出现问题:{:?}", "error".red().bold(), error);
+                error!("创建文件出现问题:{:?}", error);
                 exit(exitcode::IOERR)
             }
         };
@@ -257,7 +256,7 @@ impl DXProberClient {
             let bytes_read = match reader.read(&mut buffer) {
                 Ok(read) => read,
                 Err(error) => {
-                    eprintln!("{}: 下载文件时出现问题:\n\t{:?}", "error".red().bold(), error);
+                    error!("下载文件时出现问题:\n\t{:?}", error);
                     exit(exitcode::IOERR)
                 }
             };
@@ -266,7 +265,7 @@ impl DXProberClient {
             }
             match zip_file.write_all(&buffer[0..bytes_read]) {
                 Err(error) => {
-                    eprintln!("{}: 文件写入出现问题:{:?}", "error".red().bold(), error);
+                    error!("文件写入出现问题:{:?}",error);
                     exit(exitcode::IOERR)
                 }
                 _ => {}

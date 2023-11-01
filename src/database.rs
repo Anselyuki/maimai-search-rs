@@ -1,5 +1,7 @@
 use std::fs;
+use std::process::exit;
 
+use log::error;
 use rusqlite::{Connection, params, Row};
 
 use crate::client::{BasicInfo, Chart, Song};
@@ -15,15 +17,15 @@ impl MaimaiDB {
         match conn {
             Ok(conn) => conn,
             Err(error) => {
-                panic!("数据库连接失败:{}", error);
+                error!("数据库连接失败:{}", error);
+                exit(exitcode::DATAERR);
             }
         }
     }
 
     /// 删除表并重新创建
     pub fn re_create_table() {
-        let connection = MaimaiDB::get_connection();
-        connection.execute("drop table if exists songs;", []).unwrap();
+        MaimaiDB::get_connection().execute("drop table if exists songs;", []).unwrap();
         MaimaiDB::init();
     }
 
