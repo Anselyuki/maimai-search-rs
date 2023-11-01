@@ -40,6 +40,7 @@ impl TableUtil {
     fn get_songs(songs: Vec<Song>, markdown: bool) -> Vec<SongTable> {
         let mut table = Table::new();
         let mut header = row!["ID","乐曲标题","分区","BPM"];
+        if markdown { header.insert_cell(0, Cell::new("谱面图片")) }
 
         // 检查这一批歌曲中最大的谱面数量
         let chart_count = songs.iter()
@@ -54,6 +55,8 @@ impl TableUtil {
 
         // 构建表格行
         for song in &songs {
+
+
             let title = match markdown {
                 true => { format!("`{}`{}", song.song_type, song.title) }
                 false => { format!("[{}]{}", song.song_type, song.title) }
@@ -88,14 +91,14 @@ impl TableUtil {
         }
 
         for (title, songs) in song_map {
-            let info = format!("乐曲情报:`{}`", title);
             if markdown {
+                let info = format!("乐曲情报:`{}`", title);
                 let mut table = Table::new();
                 table.set_titles(row!["谱面图片","ID","乐曲标题","类型","分区","BPM","演唱/作曲"]);
 
                 // 获取 md 内嵌的 图片字段
                 for song in songs.clone() {
-                    let pic_url = format!("![{}](https://www.diving-fish.com/covers/{:0>5}.png)", &song.title, &song.id);
+                    let pic_url = Self::get_song_picture(&song);
                     // 其他直接可以用的列
                     let mut row = row![format!("{:5}", song.id), song.title,song.song_type,song.basic_info.genre,song.basic_info.bpm,song.basic_info.artist];
                     row.insert_cell(0, Cell::new(&*pic_url));
@@ -104,6 +107,7 @@ impl TableUtil {
                 // 乐曲情报构造完毕
                 table_vec.push(SongTable { info, table, heading_level: HeadingLevel::Two });
             } else {
+                let info = format!("乐曲情报 : {}", title);
                 let mut table = Table::new();
                 table.set_titles(row!["ID","乐曲标题","类型","分区","BPM","演唱/作曲"]);
                 for song in songs.clone() {
@@ -121,6 +125,12 @@ impl TableUtil {
             }
         }
         return table_vec;
+    }
+
+    /// 获得图片URL
+    fn get_song_picture(song: &Song) -> String {
+        let pic_url = format!("![{}](https://www.diving-fish.com/covers/{:0>5}.png)", &song.title, &song.id);
+        pic_url
     }
 
     /// 获取等级字符串
@@ -178,19 +188,21 @@ impl PrinterHandler {
             true => { TableUtil::get_songs_detail(songs, markdown) }
             false => { TableUtil::get_songs(songs, markdown) }
         };
+        // 是否输出到文件
         match output {
             Some(filename) => {
-                match detail {
+                match markdown {
                     // 写入 md 文件
                     true => MarkdownPrinter::write_file(filename, table_vec),
-                    // 输出 md 格式的表格在命令行
+                    // 输出 md 格式的表格在命令行,提示
                     false => {
-                        eprintln!("{}: 未指定输出格式! 使用 --markdown(-md) 开启 markdown 输出", "warning".yellow().bold());
+                        println!("{}: 未指定 markdown 输出! 使用 --markdown(-md) 开启 markdown 输出", "warning".yellow().bold());
                         ConsolePrinter::print_std(table_vec, markdown)
                     }
                 }
             }
-            None => ConsolePrinter::print_std(table_vec, false)
+            // console 输出表格
+            None => ConsolePrinter::print_std(table_vec, markdown)
         }
     }
 }
@@ -208,6 +220,7 @@ impl ConsolePrinter {
                 println!("{} {}\n", heading, song_table.info);
                 table.set_format(*MARKDOWN_TABLE_STYLE);
             } else {
+                println!("[{}]", song_table.info);
                 table.set_format(*FORMAT_BOX_CHARS);
             }
             table.printstd();

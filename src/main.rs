@@ -6,7 +6,7 @@ extern crate lazy_static;
 use std::path::PathBuf;
 
 use clap::Parser;
-use colored::Colorize;
+use log::{error, warn};
 use platform_dirs::AppDirs;
 use prettytable::{Attr, Cell};
 use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
@@ -21,6 +21,7 @@ mod client;
 mod database;
 mod printer_handler;
 mod profiles;
+mod simple_log;
 
 lazy_static! {
     // 在 MacOS下遵守 XDG 规范,即创建的配置文件夹为 `~/.config/maimai-search`
@@ -69,10 +70,10 @@ enum SubCommands {
         #[arg(short, long)]
         force: bool,
     },
-    /// 使用 ID 进行检索，如：maimai-search id [ID]
+    ///  使用 ID 进行检索，如：maimai-search id 11571 11524
     Id {
-        /// 检索信息(使用 --id 参数时为 id),如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
-        id: usize,
+        /// 检索 ID ,支持多个 ID 检索
+        ids: Vec<usize>,
         /// 使用 markdown 格式输出
         #[arg(short, long)]
         markdown: bool,
@@ -92,14 +93,21 @@ enum SubCommands {
 }
 
 fn main() {
+    simple_log::init().unwrap();
     let args = Args::parse();
     MaimaiDB::init();
 
     // 主要处理命令触发的逻辑
     match args.command {
-        Some(SubCommands::Update { force }) => DXProberClient::update_data(&PROFILE.url, force),
-        Some(SubCommands::Id { id, markdown, output, detail }) => {
-            let songs = DXProberClient::search_songs_by_id(id);
+        Some(SubCommands::Update { force }) => DXProberClient::update_data(&PROFILE.remote.json_url, force),
+        Some(SubCommands::Id { ids, markdown, output, detail }) => {
+            let mut songs = vec![];
+            for id in ids {
+                let results = DXProberClient::search_songs_by_id(id);
+                for song in results {
+                    songs.push(song);
+                }
+            }
             PrinterHandler::new(songs, detail, markdown, output);
         }
         Some(SubCommands::Config { default }) => if default { Profile::create_default() },
@@ -111,7 +119,7 @@ fn main() {
             }
             None => {
                 get_exist_args(&args);
-                eprintln!("{}: [NAME] 参数为空,请使用 --help 或者 -h 查看详情", "error".red().bold());
+                error!("[NAME] 参数为空,请使用 --help 或者 -h 查看详情");
             }
         },
     }
@@ -126,5 +134,7 @@ fn get_exist_args(args: &Args) {
     let collected_args: Vec<_> = fields_to_collect.iter()
         .filter(|(flag, _)| *flag)
         .map(|(_, name)| name).collect();
-    println!("{}: 检测到不能单独使用的参数: {:?}", "warning".yellow().bold(), collected_args);
+    if !collected_args.is_empty() {
+        warn!("检测到不能单独使用的参数: {:?}",  collected_args);
+    }
 }

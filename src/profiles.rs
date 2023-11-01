@@ -1,16 +1,24 @@
 use std::fs::File;
 use std::io::Write;
 
+use log::{error, info};
 use schemars::schema::RootSchema;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 
 use crate::CONFIG_PATH;
 
-// 用来接收application-dev.yml解析结果
+/// 配置文件解析结果
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Profile {
-    pub url: String,
+    pub remote: Remote,
+    pub local_picture: bool,
+}
+
+/// 远程配置
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Remote {
+    pub json_url: String,
     pub resource_url: String,
 }
 
@@ -28,7 +36,12 @@ impl Profile {
             Err(e) => panic!("Error creating file: {:?}", e),
         };
         match file.write_all(yaml.as_bytes()) {
-            Ok(_) => println!("已成功写入文件"),
+            Ok(_) => {
+                info!("已成功写入文件");
+                if let Err(error) = open::that(path) {
+                    error!("无法打开文件: {:?}", error);
+                }
+            }
             Err(e) => panic!("Error writing to file: {:?}", e),
         }
     }
@@ -73,8 +86,11 @@ impl Profile {
     }
     fn default_profile() -> Profile {
         Profile {
-            url: "https://www.diving-fish.com/api/maimaidxprober/music_data".to_string(),
-            resource_url: "https://www.diving-fish.com/maibot/static.zip".to_string(),
+            remote: Remote {
+                json_url: "https://www.diving-fish.com/api/maimaidxprober/music_data".to_string(),
+                resource_url: "https://www.diving-fish.com/maibot/static.zip".to_string(),
+            },
+            local_picture: false,
         }
     }
 }
