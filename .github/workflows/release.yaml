@@ -50,11 +50,11 @@ jobs:
         run: |
           git fetch --tags
           LATEST_TAG=$(git describe --tags --abbrev=0)
-               
+          
           tag_pattern="^[0-9]+\.[0-9]+\.[0-9]+$"
-          tags=$(git tag | grep -E $tag_pattern)
-               
-          PREVIOUS_TAG=$(echo "$tags" | tail -n2)
+          tags=$(git tag | grep -E $tag_pattern | sort -Vr )
+          
+          PREVIOUS_TAG=$( echo "$tags" | head -n2| tail -n1 )
           git log $PREVIOUS_TAG...$LATEST_TAG --pretty=format:"%h - %s" -5 > commit.log
           echo "===== Commit file ====="
           cat commit.log
