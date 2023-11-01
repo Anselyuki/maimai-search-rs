@@ -2,8 +2,7 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'  # 推送标签时触发
+    tags: [ '*' ]  # 推送标签时触发
 
 permissions:
   contents: write
