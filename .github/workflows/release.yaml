@@ -40,9 +40,6 @@ jobs:
             archive-name: maimai-search-${{ github.ref_name }}-macos-aarch64.tar.gz
       fail-fast: false
 
-    outputs:
-      COMMIT_MESSAGE: ${{ steps.commit_message.outputs.COMMIT_MESSAGE }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
