@@ -7,9 +7,6 @@ on:
 permissions:
   contents: write
 
-env:
-  env_version: 1.0.0
-
 jobs:
   build:
     name: build
