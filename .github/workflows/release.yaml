@@ -59,7 +59,7 @@ jobs:
           echo "===== Commit file ====="
           cat commit.log
           echo "====== files end ======"
-          echo "COMMIT_MESSAGE=$(cat commit.log)" >> $GITHUB_OUTPUT
+          echo "::set-output name=message::$(cat commit.log)"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.0
@@ -105,7 +105,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          body: ${{ env.COMMIT_MESSAGE }}
+          name: Release ${{ github.ref }}
+          body: ${{ steps.commit_message.outputs.message }}
           files: |
             archive/${{ matrix.archive-name }}
           token: ${{ secrets.GITHUB_TOKEN }}
