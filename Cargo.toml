@@ -25,7 +25,6 @@ prettytable = "0.10.0"
 
 # yaml 配置文件读取
 serde_yaml = "0.8.26"
-schemars = "0.8.15"
 
 # 打开系统中的文件
 open = "2.1.3"

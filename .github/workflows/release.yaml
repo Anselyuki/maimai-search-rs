@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: |
           git fetch --tags
-          echo "::set-output name=message::$(git log -5)"
+          echo "::set-output name=message::$(git log --pretty=format:"%h - %s")"
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.7.0

@@ -4,9 +4,10 @@ extern crate clap;
 extern crate lazy_static;
 
 use std::path::PathBuf;
+use std::process::exit;
 
 use clap::Parser;
-use log::{error, warn};
+use log::error;
 use platform_dirs::AppDirs;
 use prettytable::{Attr, Cell};
 use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
@@ -54,12 +55,6 @@ struct Args {
     /// 开启详情查询
     #[arg(short, long)]
     detail: bool,
-    /// 使用 markdown 格式输出
-    #[arg(short, long)]
-    markdown: bool,
-    /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
-    #[arg(short, long)]
-    output: Option<String>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -76,12 +71,6 @@ enum SubCommands {
     Id {
         /// 检索 ID ,支持多个 ID 检索
         ids: Vec<usize>,
-        /// 使用 markdown 格式输出
-        #[arg(short, long)]
-        markdown: bool,
-        /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
-        #[arg(short, long)]
-        output: Option<String>,
         /// 开启详情查询
         #[arg(short, long)]
         detail: bool,
@@ -92,7 +81,39 @@ enum SubCommands {
         #[arg(short, long)]
         default: bool,
     },
+    /// 使用 markdown 格式输出
+    Md {
+        #[command(subcommand)]
+        command: Option<MarkdownSubCommands>,
+        /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
+        name: Option<String>,
+        /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
+        #[arg(short, long, default_value = "3")]
+        count: usize,
+        /// 开启详情查询
+        #[arg(short, long)]
+        detail: bool,
+        /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
+
+/// 使用 markdown 格式输出
+#[derive(Subcommand, Debug)]
+enum MarkdownSubCommands {
+    Id {
+        /// 检索 ID ,支持多个 ID 检索
+        ids: Vec<usize>,
+        /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
+        #[arg(short, long)]
+        output: Option<String>,
+        /// 开启详情查询
+        #[arg(short, long)]
+        detail: bool,
+    },
+}
+
 
 fn main() {
     simple_log::init().unwrap();
@@ -101,39 +122,48 @@ fn main() {
 
     // 主要处理命令触发的逻辑
     match args.command {
-        Some(SubCommands::Update {}) => DXProberClient::update_data(),
-        Some(SubCommands::Resource { force }) => DXProberClient::update_resource(force),
-        Some(SubCommands::Id { ids, markdown, output, detail }) => {
+        // 子命令为空时,表示使用主功能: 按照名称查询
+        None => {
+            if let Some(name) = args.name {
+                let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
+                PrinterHandler::new(songs, args.detail, false, None);
+            } else { error_handler(); }
+        }
+        // ID 检索子命令
+        Some(SubCommands::Id { ids, detail }) => {
             let songs = ids.iter()
                 .flat_map(|id| DXProberClient::search_songs_by_id(*id))
                 .collect::<Vec<Song>>();
-            PrinterHandler::new(songs, detail, markdown, output);
+            PrinterHandler::new(songs, detail, false, None);
         }
+        // 更新数据库子命令
+        Some(SubCommands::Update {}) => DXProberClient::update_data(),
+        // 更新资源文件子命令
+        Some(SubCommands::Resource { force }) => DXProberClient::update_resource(force),
+        // 配置文件管理子命令
         Some(SubCommands::Config { default }) => if default { Profile::create_default() },
-        // 子命令为空时,表示使用主功能: 按照名称查询
-        None => match args.name {
-            Some(name) => {
-                let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
-                PrinterHandler::new(songs, args.detail, args.markdown, args.output);
+        // markdown 输出子命令
+        Some(SubCommands::Md { command, name, count, detail, output }) => {
+            match command {
+                None => {
+                    if let Some(name) = name {
+                        let songs = DXProberClient::search_songs_by_name(name.as_str(), count);
+                        PrinterHandler::new(songs, detail, true, output);
+                    } else { error_handler(); }
+                }
+                Some(MarkdownSubCommands::Id { ids, output, detail }) => {
+                    let songs = ids.iter()
+                        .flat_map(|id| DXProberClient::search_songs_by_id(*id))
+                        .collect::<Vec<Song>>();
+                    PrinterHandler::new(songs, detail, true, output);
+                }
             }
-            None => {
-                get_exist_args(&args);
-                error!("[NAME] 参数为空,请使用 --help 或者 -h 查看详情");
-            }
-        },
+        }
     }
 }
 
 /// 定义需要处理的字段和对应的字符串表示
-fn get_exist_args(args: &Args) {
-    let fields_to_collect = [
-        (args.detail, "detail"), (args.markdown, "markdown"),
-        (args.output.is_some(), &format!("output = {}", args.output.clone().unwrap_or("".to_string()))),
-    ];
-    let collected_args: Vec<_> = fields_to_collect.iter()
-        .filter(|(flag, _)| *flag)
-        .map(|(_, name)| name).collect();
-    if !collected_args.is_empty() {
-        warn!("检测到不能单独使用的参数: {:?}",  collected_args);
-    }
+fn error_handler() {
+    error!("参数错误,请使用 --help 或者 -h 查看详情");
+    exit(exitcode::USAGE)
 }
