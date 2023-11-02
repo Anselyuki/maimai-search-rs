@@ -1,43 +1,23 @@
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate lazy_static;
 
-use std::path::PathBuf;
 use std::process::exit;
 
 use clap::Parser;
 use log::error;
-use platform_dirs::AppDirs;
-use prettytable::{Attr, Cell};
-use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
-use prettytable::format::{FormatBuilder, LinePosition, LineSeparator, TableFormat};
+use crate::client::client::DXProberClient;
+use crate::config::profiles::Profile;
+use crate::db::database::MaimaiDB;
+use crate::db::entity::Song;
+use crate::service::printer_handler::PrinterHandler;
+use crate::service::resource::ResourceService;
+use crate::utils::simple_log;
 
-use crate::client::{DXProberClient, Song};
-use crate::database::MaimaiDB;
-use crate::printer_handler::PrinterHandler;
-use crate::profiles::Profile;
-
-mod client;
-mod database;
-mod printer_handler;
-mod profiles;
-mod simple_log;
-
-lazy_static! {
-    // 在 MacOS下遵守 XDG 规范,即创建的配置文件夹为 `~/.config/maimai-search`
-    static ref CONFIG_PATH: PathBuf = AppDirs::new(Some("maimai-search"), true).unwrap().config_dir;
-    static ref PROFILE: Profile = profiles::Profile::new();
-    static ref DIFFICULT_NAME: Vec<Cell> = vec!["BASIC", "ADVANCED", "EXPERT", "MASTER", "Re:MASTER"].iter()
-        .zip(&[GREEN, YELLOW, RED, MAGENTA, WHITE])
-        .map(|(difficult, column_color)| Cell::new(difficult).with_style(Attr::ForegroundColor(*column_color)))
-        .collect();
-    static ref LAUNCH_PATH: PathBuf = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
-    static ref MARKDOWN_TABLE_STYLE: TableFormat = FormatBuilder::new()
-        .column_separator('|').borders('|')
-        .separators(&[LinePosition::Title], LineSeparator::new('-', '|', '|', '|'))
-        .padding(1, 1).build();
-}
+pub mod utils;
+pub mod service;
+pub mod client;
+pub mod config;
+pub mod db;
 
 /// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
 #[derive(Parser, Debug)]
@@ -137,9 +117,9 @@ fn main() {
             PrinterHandler::new(songs, detail, false, None);
         }
         // 更新数据库子命令
-        Some(SubCommands::Update {}) => DXProberClient::update_data(),
+        Some(SubCommands::Update {}) => ResourceService::update_songs_data(),
         // 更新资源文件子命令
-        Some(SubCommands::Resource { force }) => DXProberClient::update_resource(force),
+        Some(SubCommands::Resource { force }) => ResourceService::update_resource(force),
         // 配置文件管理子命令
         Some(SubCommands::Config { default }) => if default { Profile::create_default() },
         // markdown 输出子命令

@@ -1,78 +1,24 @@
 use std::cmp::min;
-use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::exit;
 
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use jieba_rs::Jieba;
-use levenshtein::levenshtein;
 use log::{error, info, warn};
 use reqwest::blocking::Response;
-use serde::{Deserialize, Serialize};
 use zip::ZipArchive;
+use crate::config::config::{CONFIG_PATH, PROFILE};
+use crate::db::database::MaimaiDB;
+use crate::db::entity::Song;
 
-use crate::{CONFIG_PATH, PROFILE};
-use crate::database::MaimaiDB;
+pub struct ResourceService {}
 
-pub struct DXProberClient {}
-
-/// 歌曲
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Song {
-    /// 歌曲 ID
-    pub id: String,
-    /// 歌曲标题
-    pub title: String,
-    /// 歌曲类型
-    #[serde(rename = "type")]
-    pub song_type: String,
-    /// 谱面定数
-    pub ds: Vec<f32>,
-    /// 谱面等级
-    pub level: Vec<String>,
-    /// 谱面 ID
-    pub cids: Vec<u32>,
-    /// 谱面详情
-    pub charts: Vec<Chart>,
-    /// 基本信息
-    pub basic_info: BasicInfo,
-}
-
-/// 谱面
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Chart {
-    /// Note 数量分布
-    pub notes: Vec<u32>,
-    /// 谱面作者
-    pub charter: String,
-}
-
-/// 基本信息
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BasicInfo {
-    /// 歌曲标题
-    pub title: String,
-    /// 歌曲作者
-    pub artist: String,
-    /// 分区类型
-    pub genre: String,
-    /// 歌曲 BPM
-    pub bpm: u32,
-    /// 发布时间
-    pub release_date: String,
-    /// 收录版本
-    pub from: String,
-    /// 是否为新歌
-    pub is_new: bool,
-}
-
-// 用于从服务器更新谱面信息
-impl DXProberClient {
+impl ResourceService {
     /// 更新谱面信息和下载静态文件
-    pub fn update_data() {
+    pub fn update_songs_data() {
         let url = &PROFILE.remote_api.json_url;
         info!("正在从[{}]下载谱面信息", url);
         // 删除原有的表格重建会较快
@@ -108,54 +54,6 @@ impl DXProberClient {
         progress_bar.finish();
     }
 
-    /// 按照 id 查询歌曲
-    pub fn search_songs_by_id(id: usize) -> Vec<Song> {
-        let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where id = {};", id);
-        match MaimaiDB::search_song(sql) {
-            None => { Vec::new() }
-            Some(song) => { vec![song] }
-        }
-    }
-
-    /// 按照名称查询歌曲
-    pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
-        let stop_words: HashSet<String> = ["的", " ", "!", "\"", "“", "”", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=", "+", "[", "]", "{", "}", ";", ":", "<", ">", ",", ".", "/", "?"].iter().map(|&s| s.to_string()).collect();
-        let keywords: Vec<String> = Jieba::new().cut(name, true).iter()
-            .map(|s| String::from(*s))
-            // 删除停用词
-            .filter(|w| !stop_words.contains(w))
-            .collect();
-
-        let mut partial_song = HashMap::new();
-        for keyword in keywords {
-            let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title like '%{}%';", keyword);
-            for song in MaimaiDB::search_song_list(sql.as_str()) {
-                let id = song.clone().id;
-                partial_song.insert(id, song);
-            }
-        }
-        let songs = Self::similar_list_top(partial_song, name, count);
-        if songs.is_empty() {
-            warn!("查询关键字[{}]找不到匹配项", name);
-            exit(exitcode::OK);
-        }
-        songs
-    }
-
-    /// 模糊查询前 count 的匹配值
-    fn similar_list_top(partial_song: HashMap<String, Song>, name: &str, count: usize) -> Vec<Song> {
-        // 计算 Levenshtein 距离，并排序
-        let mut songs: Vec<(usize, Song)> = partial_song.iter()
-            .map(|(_, song)| { (levenshtein(name, &*song.title), song.clone()) })
-            .filter(|tuple| (tuple.0 < 100)).collect();
-        songs.sort_by(|a, b| a.0.cmp(&b.0));
-        // 选择前5个匹配项
-        songs.into_iter()
-            .take(count)
-            .map(|(_, song)| song)
-            .collect()
-    }
-
     /// 获取资源文件并解压
     pub fn update_resource(force: bool) {
         // 默认的文件名为 static.zip
@@ -177,7 +75,6 @@ impl DXProberClient {
             }
         };
 
-        dbg!(&response);
         Self::check_file(resource_zip, force, response);
 
         // 获取需要解压的文件
@@ -195,20 +92,7 @@ impl DXProberClient {
         if resource_path.exists() { fs::remove_dir_all(resource_path.as_path()).unwrap(); }
         fs::create_dir_all(resource_path.as_path()).unwrap();
 
-        for i in 0..zip.len() {
-            let mut file = zip.by_index(i).unwrap();
-            // 只需要 mai/cover 文件夹下的谱面资源文件
-            if !file.is_dir() && file.name().starts_with("mai/cover/") {
-                let file_name = file.name();
-                // 控制过滤文件夹,并将该路径截断,仅保留文件名
-                let file_path = resource_path.join(Path::new(&file_name["mai/cover/".len()..]));
-                let mut target_file = match file_path.exists() {
-                    true => File::open(file_path).unwrap(),
-                    false => File::create(file_path).unwrap()
-                };
-                std::io::copy(&mut file, &mut target_file).unwrap();
-            }
-        }
+        Self::extract_zip_archive(&mut zip, resource_path);
         info!("资源文件解压成功");
     }
 
@@ -245,6 +129,25 @@ impl DXProberClient {
             return;
         }
         info!("资源文件已存在,无需下载,开始解压资源文件...")
+    }
+
+
+    /// 解压 zip 文件
+    fn extract_zip_archive(zip: &mut ZipArchive<File>, resource_path: PathBuf) {
+        for i in 0..zip.len() {
+            let mut file = zip.by_index(i).unwrap();
+            // 只需要 mai/cover 文件夹下的谱面资源文件
+            if !file.is_dir() && file.name().starts_with("mai/cover/") {
+                let file_name = file.name();
+                // 控制过滤文件夹,并将该路径截断,仅保留文件名
+                let file_path = resource_path.join(Path::new(&file_name["mai/cover/".len()..]));
+                let mut target_file = match file_path.exists() {
+                    true => File::open(file_path).unwrap(),
+                    false => File::create(file_path).unwrap()
+                };
+                std::io::copy(&mut file, &mut target_file).unwrap();
+            }
+        }
     }
 
     /// 下载资源文件

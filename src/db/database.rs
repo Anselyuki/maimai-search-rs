@@ -1,11 +1,10 @@
 use std::fs;
 use std::process::exit;
-
 use log::error;
 use rusqlite::{Connection, params, Row};
+use crate::config::config::CONFIG_PATH;
 
-use crate::client::{BasicInfo, Chart, Song};
-use crate::CONFIG_PATH;
+use crate::db::entity::{BasicInfo, Chart, Song};
 
 pub struct MaimaiDB {}
 

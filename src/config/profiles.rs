@@ -6,7 +6,7 @@ use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 
-use crate::CONFIG_PATH;
+use crate::config::config::CONFIG_PATH;
 
 /// 配置文件解析结果
 #[derive(Serialize, Deserialize, Debug)]
@@ -33,6 +33,7 @@ pub struct MarkdownConfig {
 pub struct PictureConfig {
     pub local: LocalPictureConfig,
     pub remote: RemotePictureConfig,
+    pub console_picture: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -44,7 +45,6 @@ pub struct LocalPictureConfig {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RemotePictureConfig {
-    pub console_picture: bool,
     pub prefix_url: String,
 }
 
@@ -82,7 +82,7 @@ impl Profile {
     ///
     /// - 不会抛出异常,最坏的情况下也会返回默认配置文件
     /// - 如果指定的配置文件不存在或解析失败,会产生警告信息提示配置文件配置不正确
-    pub(crate) fn new() -> Profile where Profile: DeserializeOwned {
+    pub fn new() -> Profile where Profile: DeserializeOwned {
         let path = &CONFIG_PATH.join("config.yml");
         if !path.exists() { return Self::default_profile(); }
 
@@ -111,7 +111,8 @@ impl Profile {
             markdown: MarkdownConfig {
                 picture: PictureConfig {
                     local: LocalPictureConfig { enable: false, path: None, absolute: false },
-                    remote: RemotePictureConfig { console_picture: false, prefix_url: "https://www.diving-fish.com/covers/".to_string() },
+                    remote: RemotePictureConfig { prefix_url: "https://www.diving-fish.com/covers/".to_string() },
+                    console_picture: false,
                 },
             },
         }
