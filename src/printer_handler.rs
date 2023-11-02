@@ -1,8 +1,9 @@
 use std::cmp::max;
 use std::collections::HashMap;
-use std::fs::File;
+use std::{fs, io};
+use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::string::ToString;
 use std::vec::Vec;
@@ -38,10 +39,10 @@ struct MarkdownPrinter {}
 
 impl TableUtil {
     /// 批量获取歌曲的基本信息列表
-    fn get_songs(songs: Vec<Song>, markdown: bool) -> Vec<SongTable> {
+    fn get_songs(songs: Vec<Song>, console_pic: bool, output: Option<String>) -> Vec<SongTable> {
         let mut table = Table::new();
         let mut header = row!["ID","乐曲标题","分区","BPM"];
-        if markdown { header.insert_cell(0, Cell::new("谱面图片")) }
+        if console_pic { header.insert_cell(0, Cell::new("谱面图片")) }
 
         // 检查这一批歌曲中最大的谱面数量
         let chart_count = songs.iter()
@@ -56,14 +57,14 @@ impl TableUtil {
 
         // 构建表格行
         for song in &songs {
-            let title = match markdown {
+            let title = match console_pic {
                 true => { format!("`{}`{}", song.song_type, song.title) }
                 false => { format!("[{}]{}", song.song_type, song.title) }
             };
 
-            let mut table_data = match markdown {
+            let mut table_data = match console_pic {
                 true => {
-                    let pic_url = Self::get_song_picture(&song);
+                    let pic_url = Self::get_song_picture(&song, output.clone());
                     row![pic_url,song.id,title,song.basic_info.genre,song.basic_info.bpm]
                 }
                 false => { row![song.id,title,song.basic_info.genre,song.basic_info.bpm] }
@@ -86,7 +87,7 @@ impl TableUtil {
     /// 图片信息经拼接得到例子如下:
     ///
     /// `![PANDORA PARADOXXX](https://www.diving-fish.com/covers/00834.png)`
-    fn get_songs_detail(songs: Vec<Song>, markdown: bool) -> Vec<SongTable> {
+    fn get_songs_detail(songs: Vec<Song>, console_pic: bool, output: Option<String>) -> Vec<SongTable> {
         let mut table_vec = Vec::new();
         let mut song_map: HashMap<String, Vec<Song>> = HashMap::new();
 
@@ -98,14 +99,13 @@ impl TableUtil {
         }
 
         for (title, songs) in song_map {
-            if markdown {
+            if console_pic {
                 let info = format!("乐曲情报:`{}`", title);
                 let mut table = Table::new();
                 table.set_titles(row!["谱面图片","ID","乐曲标题","类型","分区","BPM","演唱/作曲"]);
-                dbg!(&songs);
                 // 获取 md 内嵌的 图片字段
                 for song in songs.clone() {
-                    let pic_url = Self::get_song_picture(&song);
+                    let pic_url = Self::get_song_picture(&song, output.clone());
                     // 其他直接可以用的列
                     let mut row = row![format!("{:5}", song.id), song.title,song.song_type,song.basic_info.genre,song.basic_info.bpm,song.basic_info.artist];
                     row.insert_cell(0, Cell::new(&*pic_url));
@@ -135,18 +135,69 @@ impl TableUtil {
     }
 
     /// 获得图片URL
-    fn get_song_picture(song: &Song) -> String {
+    fn get_song_picture(song: &Song, output: Option<String>) -> String {
         let config = &PROFILE.markdown.picture;
-        // 如果开启了本地化图片
-        if config.local {
-            let resource_path = CONFIG_PATH.join("resource");
+        // 如果开启了本地化图片并且输出有值
+        return if config.local.enable && output.is_some() {
+            // 是否开启绝对路径
+            let mut absolute = &PROFILE.markdown.picture.local.absolute;
+            let res_dir = match &PROFILE.markdown.picture.local.path {
+                None => LAUNCH_PATH.join(output.clone().unwrap()),
+                Some(path) => {
+                    if !absolute {
+                        warn!("开启自定义资源目录时不支持相对路径引用");
+                        absolute = &true;
+                    }
+                    Path::new(path).to_path_buf()
+                }
+            };
+
+            if !res_dir.exists() {
+                if let Err(error) = fs::create_dir(res_dir.clone()) {
+                    error!("创建图片文件夹失败\n[Cause]:{:?}",error);
+                    exit(exitcode::IOERR)
+                }
+            };
+
+            let filename = format!("{:0>5}.png", &song.id);
+            let dest_path = res_dir.join(&filename);
+            let source_path = CONFIG_PATH.join("resource").join(&filename);
             // 资源文件夹不存在,执行一次资源更新
-            if !resource_path.exists() {
-                warn!("资源文件夹不存在,执行资源文件更新");
+            if !source_path.exists() {
+                warn!("资源文件不存在,执行资源文件更新");
                 DXProberClient::update_resource(false);
             }
-        }
-        format!("![{}]({}{:0>5}.png)", &song.title, config.prefix_url, &song.id)
+
+            if let Err(error) = Self::copy_file(source_path.clone(), dest_path.clone()) {
+                error!("拷贝资源文件失败!使用远程地址\n[Cause]:{:?}",error);
+                return format!("![{}]({}{:0>5}.png)", &song.title, config.remote.prefix_url, &song.id);
+            }
+
+            return if *absolute {
+                // 绝对路径
+                format!("![{}]({})", &song.title, dest_path.display())
+            } else {
+                //相对路径
+                format!("![{}]({}/{:0>5}.png)", &song.title, output.unwrap(), &song.id)
+            };
+        } else {
+            format!("![{}]({}{:0>5}.png)", &song.title, config.remote.prefix_url, &song.id)
+        };
+    }
+
+    fn copy_file(from: impl AsRef<Path>, to: impl AsRef<Path>) -> io::Result<()> {
+        let from_path = from.as_ref();
+        let to_path = to.as_ref();
+        // 打开源文件并创建目标文件
+        let mut source_file = File::open(from_path)?;
+        let mut dest_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(to_path)?;
+        // 复制数据
+        io::copy(&mut source_file, &mut dest_file)?;
+        Ok(())
     }
 
     /// 获取等级字符串
@@ -203,9 +254,10 @@ impl TableUtil {
 impl PrinterHandler {
     /// 输出信息
     pub(crate) fn new(songs: Vec<Song>, detail: bool, markdown: bool, output: Option<String>) {
+        let console_pic = PROFILE.markdown.picture.remote.console_picture || markdown;
         let table_vec = match detail {
-            true => { TableUtil::get_songs_detail(songs, markdown) }
-            false => { TableUtil::get_songs(songs, markdown) }
+            true => { TableUtil::get_songs_detail(songs, console_pic, output.clone()) }
+            false => { TableUtil::get_songs(songs, console_pic, output.clone()) }
         };
         // 是否输出到文件
         match output {

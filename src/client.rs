@@ -73,7 +73,7 @@ pub struct BasicInfo {
 impl DXProberClient {
     /// 更新谱面信息和下载静态文件
     pub fn update_data() {
-        let url = &PROFILE.remote.json_url;
+        let url = &PROFILE.remote_api.json_url;
         info!("正在从[{}]下载谱面信息", url);
         // 删除原有的表格重建会较快
         MaimaiDB::re_create_table();
@@ -160,33 +160,25 @@ impl DXProberClient {
     pub fn update_resource(force: bool) {
         // 默认的文件名为 static.zip
         let resource_zip = &CONFIG_PATH.join("static.zip");
-        let client = reqwest::blocking::Client::new();
 
         // 发起GET请求并获取响应
-        let response = match client.get(&PROFILE.remote.resource_url).send() {
-            Ok(response) => { response }
-            Err(_) => {
-                error!("无法连接到服务器,请检查网络连接");
+        let response = match reqwest::blocking::get(&PROFILE.remote_api.resource_url) {
+            Ok(response) => {
+                // 检查响应状态是否成功
+                if !response.status().is_success() {
+                    error!("下载文件时出现问题：{:?}", response.status());
+                    exit(exitcode::IOERR)
+                }
+                response
+            }
+            Err(error) => {
+                error!("无法连接到服务器,请检查网络连接:\n\t{:?}", error);
                 exit(exitcode::UNAVAILABLE)
             }
         };
 
-        // 检查响应状态是否成功
-        if !response.status().is_success() {
-            error!("下载文件时出现问题：{:?}", response.status());
-            exit(exitcode::IOERR)
-        }
-
-        // 携带强制标识,删除资源文件重建
-        if force && resource_zip.exists() { fs::remove_file(resource_zip.as_path()).unwrap(); }
-
-        if !resource_zip.exists() {
-            // 下载文件
-            Self::download_resource(resource_zip, response);
-            info!("资源文件下载成功,开始解压资源文件...");
-        } else {
-            info!("资源文件已存在,无需下载,开始解压资源文件...");
-        }
+        dbg!(&response);
+        Self::check_file(resource_zip, force, response);
 
         // 获取需要解压的文件
         let archive = File::open(resource_zip).unwrap();
@@ -220,11 +212,46 @@ impl DXProberClient {
         info!("资源文件解压成功");
     }
 
+    /// 检查文件是否合法(例如: 文件大小不正确或不存在,这种情况多半是寄了，需要重新下载)
+    ///
+    /// 如果携带强制标识,删除资源文件重建
+    fn check_file(resource_zip: &PathBuf, force: bool, response: Response) {
+        if force && resource_zip.exists() { fs::remove_file(resource_zip).unwrap(); }
+
+        // 文件不存在开始下载
+        if !resource_zip.exists() {
+            // 下载文件
+            Self::download_resource(resource_zip, response);
+            info!("资源文件下载成功,开始解压资源文件...");
+            return;
+        }
+
+        // 如果上面的下载逻辑成功，无论下没下完都能获得 metadata,拿到长度
+        let content_length = match fs::metadata(resource_zip) {
+            Ok(metadata) => metadata.len(),
+            Err(error) => {
+                error!("无法获取下载文件详情\n\t{:?}", error);
+                exit(exitcode::IOERR)
+            }
+        };
+
+        // 这里处理文件长度,场景是下载了但没完全下完的时候，压缩包大小不对，也有可能是静态文件发生了变化,总之是要重下
+        if !content_length.eq(&response.content_length().unwrap_or(0))
+        {
+            warn!("资源文件已存在,但是文件大小不正确,开始重新下载...");
+            fs::remove_file(resource_zip).unwrap();
+            Self::download_resource(resource_zip, response);
+            info!("资源文件下载成功,开始解压资源文件...");
+            return;
+        }
+        info!("资源文件已存在,无需下载,开始解压资源文件...")
+    }
+
     /// 下载资源文件
     ///
     /// 资源文件路径可以在配置文件内配置
     fn download_resource(resource_zip: &PathBuf, response: Response) {
-        info!("正在从[{}]下载资源文件", &PROFILE.remote.resource_url);
+        info!("正在从[{}]下载资源文件", &PROFILE.remote_api.resource_url);
 
         let total_size = match response.content_length() {
             None => {

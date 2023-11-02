@@ -3,7 +3,6 @@ use std::io::Write;
 use std::process::exit;
 
 use log::{error, info, warn};
-use schemars::schema::RootSchema;
 use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
 
@@ -12,13 +11,13 @@ use crate::CONFIG_PATH;
 /// 配置文件解析结果
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Profile {
-    pub remote: RemoteConfig,
+    pub remote_api: RemoteAPIConfig,
     pub markdown: MarkdownConfig,
 }
 
 /// 远程配置
 #[derive(Serialize, Deserialize, Debug)]
-pub struct RemoteConfig {
+pub struct RemoteAPIConfig {
     pub json_url: String,
     pub resource_url: String,
 }
@@ -32,7 +31,20 @@ pub struct MarkdownConfig {
 /// 远程配置
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PictureConfig {
-    pub local: bool,
+    pub local: LocalPictureConfig,
+    pub remote: RemotePictureConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LocalPictureConfig {
+    pub enable: bool,
+    pub path: Option<String>,
+    pub absolute: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RemotePictureConfig {
+    pub console_picture: bool,
     pub prefix_url: String,
 }
 
@@ -79,41 +91,27 @@ impl Profile {
             Ok(file_str) => file_str,
             Err(error) => return Self::error_handler(error.to_string())
         };
-
-        // 2.通过 serde_yaml 解析读取到的 yaml 配置转换成 json 对象
-        return match serde_yaml::from_str::<RootSchema>(&yaml_value) {
-            Ok(root_schema) => {
-                // 通过 serde_json 把 json 对象转换指定的 model
-                let data = match serde_json::to_string_pretty(&root_schema) {
-                    Ok(data) => data,
-                    Err(error) => return Self::error_handler(error.to_string())
-                };
-                match serde_json::from_str::<Profile>(&*data) {
-                    Ok(profile) => profile,
-                    Err(error) => Self::error_handler(error.to_string())
-                }
-            }
-            Err(error) => Self::error_handler(error.to_string())
-        };
+        serde_yaml::from_str(&yaml_value).unwrap_or_else(|error| Self::error_handler(error.to_string()))
     }
 
     /// 处理失败处理,返回默认配置文件
     fn error_handler(error: String) -> Profile {
         warn!("配置文件解析失败,使用默认值\n[Cause]: {}", error);
+        info!("因为懒的问题没有配置跳过空字段,所以请在默认配置文件基础上修改喵: (config --default 生成默认配置文件)");
         Self::default_profile()
     }
 
     /// 默认配置文件的字段
     fn default_profile() -> Profile {
         Profile {
-            remote: RemoteConfig {
+            remote_api: RemoteAPIConfig {
                 json_url: "https://www.diving-fish.com/api/maimaidxprober/music_data".to_string(),
                 resource_url: "https://www.diving-fish.com/maibot/static.zip".to_string(),
             },
             markdown: MarkdownConfig {
                 picture: PictureConfig {
-                    local: false,
-                    prefix_url: "https://www.diving-fish.com/covers/".to_string(),
+                    local: LocalPictureConfig { enable: false, path: None, absolute: false },
+                    remote: RemotePictureConfig { console_picture: false, prefix_url: "https://www.diving-fish.com/covers/".to_string() },
                 },
             },
         }
