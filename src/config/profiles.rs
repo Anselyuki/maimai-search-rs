@@ -3,10 +3,10 @@ use std::io::Write;
 use std::process::exit;
 
 use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
-use crate::config::config::CONFIG_PATH;
+use crate::config::consts::CONFIG_PATH;
 
 /// 配置文件解析结果
 #[derive(Serialize, Deserialize, Debug)]
@@ -66,7 +66,7 @@ impl Profile {
         };
         match file.write_all(yaml.as_bytes()) {
             Ok(_) => {
-                info!("已成功创建配置文件:{}",path.display());
+                info!("已成功创建配置文件:{}", path.display());
                 open::that(path).unwrap();
             }
             Err(e) => {
@@ -82,16 +82,22 @@ impl Profile {
     ///
     /// - 不会抛出异常,最坏的情况下也会返回默认配置文件
     /// - 如果指定的配置文件不存在或解析失败,会产生警告信息提示配置文件配置不正确
-    pub fn new() -> Profile where Profile: DeserializeOwned {
+    pub fn new() -> Profile
+    where
+        Profile: DeserializeOwned,
+    {
         let path = &CONFIG_PATH.join("config.yml");
-        if !path.exists() { return Self::default_profile(); }
+        if !path.exists() {
+            return Self::default_profile();
+        }
 
         // 通过 std::fs 读取配置文件内容,解析失败也返回默认配置文件
         let yaml_value = match std::fs::read_to_string(path) {
             Ok(file_str) => file_str,
-            Err(error) => return Self::error_handler(error.to_string())
+            Err(error) => return Self::error_handler(error.to_string()),
         };
-        serde_yaml::from_str(&yaml_value).unwrap_or_else(|error| Self::error_handler(error.to_string()))
+        serde_yaml::from_str(&yaml_value)
+            .unwrap_or_else(|error| Self::error_handler(error.to_string()))
     }
 
     /// 处理失败处理,返回默认配置文件
@@ -110,8 +116,14 @@ impl Profile {
             },
             markdown: MarkdownConfig {
                 picture: PictureConfig {
-                    local: LocalPictureConfig { enable: false, path: None, absolute: false },
-                    remote: RemotePictureConfig { prefix_url: "https://www.diving-fish.com/covers/".to_string() },
+                    local: LocalPictureConfig {
+                        enable: false,
+                        path: None,
+                        absolute: false,
+                    },
+                    remote: RemotePictureConfig {
+                        prefix_url: "https://www.diving-fish.com/covers/".to_string(),
+                    },
                     console_picture: false,
                 },
             },

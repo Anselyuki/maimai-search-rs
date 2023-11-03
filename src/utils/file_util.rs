@@ -1,9 +1,9 @@
-use crate::config::config::LAUNCH_PATH;
+use crate::config::consts::LAUNCH_PATH;
+use log::error;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use log::error;
 
 pub struct FileUtils {}
 
@@ -23,8 +23,13 @@ impl FileUtils {
     pub fn add_md_extension(filename: String) -> PathBuf {
         let path = LAUNCH_PATH.join(filename);
         if let Some(ext) = path.extension() {
-            if ext.eq("md") { return path.to_owned(); }
-            error!("文件后缀不是\".md\",获取到\".{}\",可以选择不指定后缀名,或指定\".md\"后缀名",  ext.to_str().unwrap());
+            if ext.eq("md") {
+                return path.to_owned();
+            }
+            error!(
+                "文件后缀不是\".md\",获取到\".{}\",可以选择不指定后缀名,或指定\".md\"后缀名",
+                ext.to_str().unwrap()
+            );
             exit(exitcode::USAGE);
         }
         let mut new_path = PathBuf::from(path);

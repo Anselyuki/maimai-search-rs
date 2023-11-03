@@ -14,9 +14,15 @@ impl log::Log for SimpleLogger {
         if self.enabled(record.metadata()) {
             let args = record.args();
             match record.level() {
-                Level::Error => { eprintln!("{}{} {}", "error".red().bold(), ":".bold(), args); }
-                Level::Warn => { println!("{}{} {}", "warning".yellow().bold(), ":".bold(), args); }
-                Level::Info => { println!("{}{} {}", "info".green().bold(), ":".bold(), args); }
+                Level::Error => {
+                    eprintln!("{}{} {}", "error".red().bold(), ":".bold(), args);
+                }
+                Level::Warn => {
+                    println!("{}{} {}", "warning".yellow().bold(), ":".bold(), args);
+                }
+                Level::Info => {
+                    println!("{}{} {}", "info".green().bold(), ":".bold(), args);
+                }
                 _ => {}
             }
         }

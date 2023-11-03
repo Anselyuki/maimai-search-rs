@@ -1,2 +1,2 @@
-pub mod printer_handler;
+pub mod client;
 pub mod resource;

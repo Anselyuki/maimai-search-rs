@@ -3,21 +3,20 @@ extern crate clap;
 
 use std::process::exit;
 
-use clap::Parser;
-use log::error;
-use crate::client::client::DXProberClient;
 use crate::config::profiles::Profile;
 use crate::db::database::MaimaiDB;
 use crate::db::entity::Song;
-use crate::service::printer_handler::PrinterHandler;
+use crate::service::client::DXProberClient;
 use crate::service::resource::ResourceService;
+use crate::utils::printer_handler::PrinterHandler;
 use crate::utils::simple_log;
+use clap::Parser;
+use log::error;
 
-pub mod utils;
-pub mod service;
-pub mod client;
 pub mod config;
 pub mod db;
+pub mod service;
+pub mod utils;
 
 /// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
 #[derive(Parser, Debug)]
@@ -39,14 +38,6 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum SubCommands {
-    /// 更新谱面信息数据库
-    Update {},
-    /// 更新资源文件
-    Resource {
-        /// 强制更新资源文件
-        #[arg(short, long)]
-        force: bool,
-    },
     ///  使用 ID 进行检索，如：maimai-search id 11571 11524
     Id {
         /// 检索 ID ,支持多个 ID 检索
@@ -54,12 +45,6 @@ enum SubCommands {
         /// 开启详情查询
         #[arg(short, long)]
         detail: bool,
-    },
-    /// 配置文件管理,详情请运行 maimai-search config --help
-    Config {
-        /// 在配置文件夹内创建默认配置文件
-        #[arg(short, long)]
-        default: bool,
     },
     /// 使用 markdown 格式输出
     Md {
@@ -76,6 +61,20 @@ enum SubCommands {
         /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
         #[arg(short, long)]
         output: Option<String>,
+    },
+    /// 更新谱面信息数据库
+    Update {},
+    /// 更新资源文件
+    Resource {
+        /// 强制更新资源文件
+        #[arg(short, long)]
+        force: bool,
+    },
+    /// 配置文件管理,详情请运行 maimai-search config --help
+    Config {
+        /// 在配置文件夹内创建默认配置文件
+        #[arg(short, long)]
+        default: bool,
     },
 }
 
@@ -94,7 +93,6 @@ enum MarkdownSubCommands {
     },
 }
 
-
 fn main() {
     simple_log::init().unwrap();
     let args = Args::parse();
@@ -107,11 +105,14 @@ fn main() {
             if let Some(name) = args.name {
                 let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
                 PrinterHandler::new(songs, args.detail, false, None);
-            } else { error_handler(); }
+            } else {
+                error_handler();
+            }
         }
         // ID 检索子命令
         Some(SubCommands::Id { ids, detail }) => {
-            let songs = ids.iter()
+            let songs = ids
+                .iter()
                 .flat_map(|id| DXProberClient::search_songs_by_id(*id))
                 .collect::<Vec<Song>>();
             PrinterHandler::new(songs, detail, false, None);
@@ -121,24 +122,39 @@ fn main() {
         // 更新资源文件子命令
         Some(SubCommands::Resource { force }) => ResourceService::update_resource(force),
         // 配置文件管理子命令
-        Some(SubCommands::Config { default }) => if default { Profile::create_default() },
-        // markdown 输出子命令
-        Some(SubCommands::Md { command, name, count, detail, output }) => {
-            match command {
-                None => {
-                    if let Some(name) = name {
-                        let songs = DXProberClient::search_songs_by_name(name.as_str(), count);
-                        PrinterHandler::new(songs, detail, true, output);
-                    } else { error_handler(); }
-                }
-                Some(MarkdownSubCommands::Id { ids, output, detail }) => {
-                    let songs = ids.iter()
-                        .flat_map(|id| DXProberClient::search_songs_by_id(*id))
-                        .collect::<Vec<Song>>();
-                    PrinterHandler::new(songs, detail, true, output);
-                }
+        Some(SubCommands::Config { default }) => {
+            if default {
+                Profile::create_default()
             }
         }
+        // markdown 输出子命令
+        Some(SubCommands::Md {
+            command,
+            name,
+            count,
+            detail,
+            output,
+        }) => match command {
+            None => {
+                if let Some(name) = name {
+                    let songs = DXProberClient::search_songs_by_name(name.as_str(), count);
+                    PrinterHandler::new(songs, detail, true, output);
+                } else {
+                    error_handler();
+                }
+            }
+            Some(MarkdownSubCommands::Id {
+                ids,
+                output,
+                detail,
+            }) => {
+                let songs = ids
+                    .iter()
+                    .flat_map(|id| DXProberClient::search_songs_by_id(*id))
+                    .collect::<Vec<Song>>();
+                PrinterHandler::new(songs, detail, true, output);
+            }
+        },
     }
 }
 

@@ -6,13 +6,13 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 
+use crate::config::consts::{CONFIG_PATH, PROFILE};
+use crate::db::database::MaimaiDB;
+use crate::db::entity::Song;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use log::{error, info, warn};
 use reqwest::blocking::Response;
 use zip::ZipArchive;
-use crate::config::config::{CONFIG_PATH, PROFILE};
-use crate::db::database::MaimaiDB;
-use crate::db::entity::Song;
 
 pub struct ResourceService {}
 
@@ -24,31 +24,36 @@ impl ResourceService {
         // 删除原有的表格重建会较快
         MaimaiDB::re_create_table();
         let songs = match reqwest::blocking::get(url) {
-            Ok(response) => { response.json::<Vec<Song>>() }
+            Ok(response) => response.json::<Vec<Song>>(),
             Err(error) => {
                 error!("获取服务器信息出错:{:?}", error);
                 exit(exitcode::UNAVAILABLE)
             }
-        }.unwrap();
+        }
+        .unwrap();
 
         let progress_bar = ProgressBar::new(songs.len() as u64);
-        progress_bar.set_style(ProgressStyle::default_bar()
-            .template("{bar:50.green/white} 歌曲数量: {pos}/{len} [{elapsed_precise}]").unwrap()
+        progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("{bar:50.green/white} 歌曲数量: {pos}/{len} [{elapsed_precise}]")
+                .unwrap(),
         );
 
         let connection = MaimaiDB::get_connection();
         let mut statement = connection.prepare_cached("INSERT INTO songs (id, title, song_type, ds, level, cids, charts, basic_info) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)").expect("SQL 解析失败");
         for song in &songs {
-            statement.execute(&[
-                &song.id,
-                &song.title,
-                &song.song_type,
-                &serde_json::to_string(&song.ds).unwrap(),
-                &serde_json::to_string(&song.level).unwrap(),
-                &serde_json::to_string(&song.cids).unwrap(),
-                &serde_json::to_string(&song.charts).unwrap(),
-                &serde_json::to_string(&song.basic_info).unwrap()
-            ]).unwrap();
+            statement
+                .execute(&[
+                    &song.id,
+                    &song.title,
+                    &song.song_type,
+                    &serde_json::to_string(&song.ds).unwrap(),
+                    &serde_json::to_string(&song.level).unwrap(),
+                    &serde_json::to_string(&song.cids).unwrap(),
+                    &serde_json::to_string(&song.charts).unwrap(),
+                    &serde_json::to_string(&song.basic_info).unwrap(),
+                ])
+                .unwrap();
             progress_bar.inc(1);
         }
         progress_bar.finish();
@@ -82,14 +87,19 @@ impl ResourceService {
         let mut zip = match ZipArchive::new(archive) {
             Ok(zip) => zip,
             Err(err) => {
-                error!("无法解压资源文件,可以尝试使用 --force(-f) 参数进行强制更新\n\t{:?}", err);
+                error!(
+                    "无法解压资源文件,可以尝试使用 --force(-f) 参数进行强制更新\n\t{:?}",
+                    err
+                );
                 exit(exitcode::IOERR)
             }
         };
 
         // 创建资源文件夹,如果存在则删除
         let resource_path = CONFIG_PATH.join("resource");
-        if resource_path.exists() { fs::remove_dir_all(resource_path.as_path()).unwrap(); }
+        if resource_path.exists() {
+            fs::remove_dir_all(resource_path.as_path()).unwrap();
+        }
         fs::create_dir_all(resource_path.as_path()).unwrap();
 
         Self::extract_zip_archive(&mut zip, resource_path);
@@ -100,7 +110,9 @@ impl ResourceService {
     ///
     /// 如果携带强制标识,删除资源文件重建
     fn check_file(resource_zip: &PathBuf, force: bool, response: Response) {
-        if force && resource_zip.exists() { fs::remove_file(resource_zip).unwrap(); }
+        if force && resource_zip.exists() {
+            fs::remove_file(resource_zip).unwrap();
+        }
 
         // 文件不存在开始下载
         if !resource_zip.exists() {
@@ -120,8 +132,7 @@ impl ResourceService {
         };
 
         // 这里处理文件长度,场景是下载了但没完全下完的时候，压缩包大小不对，也有可能是静态文件发生了变化,总之是要重下
-        if !content_length.eq(&response.content_length().unwrap_or(0))
-        {
+        if !content_length.eq(&response.content_length().unwrap_or(0)) {
             warn!("资源文件已存在,但是文件大小不正确,开始重新下载...");
             fs::remove_file(resource_zip).unwrap();
             Self::download_resource(resource_zip, response);
@@ -130,7 +141,6 @@ impl ResourceService {
         }
         info!("资源文件已存在,无需下载,开始解压资源文件...")
     }
-
 
     /// 解压 zip 文件
     fn extract_zip_archive(zip: &mut ZipArchive<File>, resource_path: PathBuf) {
@@ -143,7 +153,7 @@ impl ResourceService {
                 let file_path = resource_path.join(Path::new(&file_name["mai/cover/".len()..]));
                 let mut target_file = match file_path.exists() {
                     true => File::open(file_path).unwrap(),
-                    false => File::create(file_path).unwrap()
+                    false => File::create(file_path).unwrap(),
                 };
                 std::io::copy(&mut file, &mut target_file).unwrap();
             }
@@ -161,7 +171,7 @@ impl ResourceService {
                 error!("下载文件时出现问题,获取的文件大小为 0");
                 exit(exitcode::IOERR)
             }
-            Some(size) => size
+            Some(size) => size,
         };
 
         // 创建文件来保存下载的内容
@@ -177,9 +187,16 @@ impl ResourceService {
         let mut buffer = [0; 4096];
 
         let progress_bar = ProgressBar::new(total_size);
-        progress_bar.set_style(ProgressStyle::default_bar()
-            .template("{bar:50.green/white} 下载进度: {bytes}/{total_bytes} [ETA: {eta}]").unwrap()
-            .with_key("eta", |state: &ProgressState, w: &mut dyn std::fmt::Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+        progress_bar.set_style(
+            ProgressStyle::default_bar()
+                .template("{bar:50.green/white} 下载进度: {bytes}/{total_bytes} [ETA: {eta}]")
+                .unwrap()
+                .with_key(
+                    "eta",
+                    |state: &ProgressState, w: &mut dyn std::fmt::Write| {
+                        write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+                    },
+                ),
         );
         let mut downloaded: u64 = 0;
         loop {
@@ -195,7 +212,7 @@ impl ResourceService {
             }
             match zip_file.write_all(&buffer[0..bytes_read]) {
                 Err(error) => {
-                    error!("文件写入出现问题:{:?}",error);
+                    error!("文件写入出现问题:{:?}", error);
                     exit(exitcode::IOERR)
                 }
                 _ => {}

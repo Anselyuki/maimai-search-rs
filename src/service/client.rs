@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::process::exit;
 
+use crate::db::database::MaimaiDB;
 use jieba_rs::Jieba;
 use levenshtein::levenshtein;
 use log::warn;
-use crate::db::database::MaimaiDB;
 
 use crate::db::entity::Song;
 
@@ -16,15 +16,25 @@ impl DXProberClient {
     pub fn search_songs_by_id(id: usize) -> Vec<Song> {
         let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where id = {};", id);
         match MaimaiDB::search_song(sql) {
-            None => { Vec::new() }
-            Some(song) => { vec![song] }
+            None => Vec::new(),
+            Some(song) => {
+                vec![song]
+            }
         }
     }
 
     /// 按照名称查询歌曲
     pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
-        let stop_words: HashSet<String> = ["的", " ", "!", "\"", "“", "”", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=", "+", "[", "]", "{", "}", ";", ":", "<", ">", ",", ".", "/", "?"].iter().map(|&s| s.to_string()).collect();
-        let keywords: Vec<String> = Jieba::new().cut(name, true).iter()
+        let stop_words: HashSet<String> = [
+            "的", " ", "!", "\"", "“", "”", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=",
+            "+", "[", "]", "{", "}", ";", ":", "<", ">", ",", ".", "/", "?",
+        ]
+        .iter()
+        .map(|&s| s.to_string())
+        .collect();
+        let keywords: Vec<String> = Jieba::new()
+            .cut(name, true)
+            .iter()
             .map(|s| String::from(*s))
             // 删除停用词
             .filter(|w| !stop_words.contains(w))
@@ -47,14 +57,21 @@ impl DXProberClient {
     }
 
     /// 模糊查询前 count 的匹配值
-    fn similar_list_top(partial_song: HashMap<String, Song>, name: &str, count: usize) -> Vec<Song> {
+    fn similar_list_top(
+        partial_song: HashMap<String, Song>,
+        name: &str,
+        count: usize,
+    ) -> Vec<Song> {
         // 计算 Levenshtein 距离，并排序
-        let mut songs: Vec<(usize, Song)> = partial_song.iter()
-            .map(|(_, song)| { (levenshtein(name, &*song.title), song.clone()) })
-            .filter(|tuple| (tuple.0 < 100)).collect();
+        let mut songs: Vec<(usize, Song)> = partial_song
+            .iter()
+            .map(|(_, song)| (levenshtein(name, &*song.title), song.clone()))
+            .filter(|tuple| (tuple.0 < 100))
+            .collect();
         songs.sort_by(|a, b| a.0.cmp(&b.0));
         // 选择前5个匹配项
-        songs.into_iter()
+        songs
+            .into_iter()
             .take(count)
             .map(|(_, song)| song)
             .collect()
