@@ -4,7 +4,9 @@
 
 > 数据来源[舞萌 DX 查分器](https://github.com/Diving-Fish/maimaidx-prober)，感谢大佬提供的 API 接口与数据
 
-主要的功能是查找歌曲的难度，以及查找难度的歌曲,由于本人是 Rust 初学者，故从自己的需求入手写一个小工具，仅支持命令行模式请求
+## 核心功能
+
+对于接收的部分歌曲信息进行检索,由于本人是 Rust 初学者，故从自己的需求入手写一个小工具，仅支持命令行模式请求
 
 ## 注意事项
 
@@ -13,32 +15,54 @@
 
 可以选择把本程序放置于 PATH 下，或者在使用时指定路径
 
-## 主要功能
+### 安装
 
-### 更新歌曲数据
+> 更新在线数据（只需更新一次即可）
 
-> 只要在使用前运行一次即可，不需要每次都运行
-
+#### Linux / macOS
 ```bash
 maimai-search update
 ```
 
-通过添加`--md`参数可以将歌曲信息输出为 Markdown 表格
+#### Windows
+```bash
+maimai-search.exe update
+```
+## 主要功能
 
-## TODO:
-
-### 推分 list
-
-添加推分 list 功能，可以将自己的推分列表导入到数据库中
-
-### 文件尾部追加表格
-
-add功能 在文件尾部添加表格
-
-### md 命令替换
-
-直接把文件内的bash行当成命令执行，然后把结果替换到文件中
+### 模糊搜索
+    输入希望查询的歌名的部分信息（比如 `初音` ）
 
 ```bash
-maimai-search add
+maimai-search 初音
 ```
+
+    显示模糊搜索可匹配到的n个结果（n为参数）
+
+```bash
+maimai-search S -c 200
+```
+### ID搜索/精确搜索
+
+```bash
+maimai-search id 11311
+```
+
+### 输出查询对象的铺面信息
+
+```bash
+maimai-search id 11311 -d
+```
+
+### ~~Markdown格式输出查询结果~~（重构中）
+
+```bash
+maimai-search id 11311 -m
+```
+## TODO:
+
+- 推分 list
+  - 添加推分 list 功能，可以将自己的推分列表导入到数据库中
+- 重构Markdown功能
+- 重构数据库类型
+- 加入b50生成功能（利用pyo3 module）
