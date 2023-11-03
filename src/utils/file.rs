@@ -1,13 +1,23 @@
-use crate::config::consts::LAUNCH_PATH;
-use log::error;
-use std::fs::{File, OpenOptions};
+use std::fs::{create_dir, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
+use log::error;
+
+use crate::config::consts::LAUNCH_PATH;
+
 pub struct FileUtils {}
 
 impl FileUtils {
+    /// 如果路径存在则创建
+    pub fn create_not_exists(path: &PathBuf) {
+        if !path.exists() {
+            if let Err(error) = create_dir(path) {
+                error!("创建文件/文件夹失败!\n[Cause]{:?}", error)
+            }
+        }
+    }
     /// 去除文件可能存在的拓展名
     pub fn remove_extension(filename: &str) -> String {
         let path = Path::new(filename);

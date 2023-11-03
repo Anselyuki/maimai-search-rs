@@ -9,7 +9,6 @@ use log::error;
 use crate::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use crate::config::profiles::Profile;
 use crate::db::database::MaimaiDB;
-use crate::db::entity::Song;
 use crate::service::client::DXProberClient;
 use crate::service::resource::ResourceService;
 use crate::utils::printer::PrinterHandler;
@@ -23,7 +22,9 @@ pub mod utils;
 fn main() {
     simple_log::init().unwrap();
     let args = MaimaiSearchArgs::parse();
-    MaimaiDB::init();
+    if let Err(error) = MaimaiDB::init() {
+        error!("数据库初始化失败{}", error)
+    }
 
     // 主要处理命令触发的逻辑
     match args.command {

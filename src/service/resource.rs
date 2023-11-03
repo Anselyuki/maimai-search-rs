@@ -6,13 +6,14 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 
-use crate::config::consts::{CONFIG_PATH, PROFILE};
-use crate::db::database::MaimaiDB;
-use crate::db::entity::Song;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use log::{error, info, warn};
 use reqwest::blocking::Response;
 use zip::ZipArchive;
+
+use crate::config::consts::{CONFIG_PATH, PROFILE};
+use crate::db::database::{MaimaiDB, TantivyDB};
+use crate::db::entity::Song;
 
 pub struct ResourceService {}
 
@@ -21,8 +22,7 @@ impl ResourceService {
     pub fn update_songs_data() {
         let url = &PROFILE.remote_api.json_url;
         info!("正在从[{}]下载谱面信息", url);
-        // 删除原有的表格重建会较快
-        MaimaiDB::re_create_table();
+
         let songs = match reqwest::blocking::get(url) {
             Ok(response) => response.json::<Vec<Song>>(),
             Err(error) => {
@@ -32,31 +32,7 @@ impl ResourceService {
         }
         .unwrap();
 
-        let progress_bar = ProgressBar::new(songs.len() as u64);
-        progress_bar.set_style(
-            ProgressStyle::default_bar()
-                .template("{bar:50.green/white} 歌曲数量: {pos}/{len} [{elapsed_precise}]")
-                .unwrap(),
-        );
-
-        let connection = MaimaiDB::get_connection();
-        let mut statement = connection.prepare_cached("INSERT INTO songs (id, title, song_type, ds, level, cids, charts, basic_info) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)").expect("SQL 解析失败");
-        for song in &songs {
-            statement
-                .execute(&[
-                    &song.id,
-                    &song.title,
-                    &song.song_type,
-                    &serde_json::to_string(&song.ds).unwrap(),
-                    &serde_json::to_string(&song.level).unwrap(),
-                    &serde_json::to_string(&song.cids).unwrap(),
-                    &serde_json::to_string(&song.charts).unwrap(),
-                    &serde_json::to_string(&song.basic_info).unwrap(),
-                ])
-                .unwrap();
-            progress_bar.inc(1);
-        }
-        progress_bar.finish();
+        MaimaiDB::update_database(&songs);
     }
 
     /// 获取资源文件并解压

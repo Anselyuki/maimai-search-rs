@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use tantivy::schema::{Schema, STORED, TEXT};
 
 /// 歌曲
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -48,4 +49,19 @@ pub struct BasicInfo {
     pub from: String,
     /// 是否为新歌
     pub is_new: bool,
+}
+
+impl Song {
+    pub(crate) fn get_schema() -> Schema {
+        let mut schema_builder = Schema::builder();
+        schema_builder.add_text_field("id", TEXT | STORED);
+        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_text_field("song_type", TEXT | STORED);
+        schema_builder.add_u64_field("ds", STORED);
+        schema_builder.add_u64_field("level", STORED);
+        schema_builder.add_facet_field("cids", ());
+        schema_builder.add_facet_field("charts", ());
+        schema_builder.add_text_field("basic_info", TEXT | STORED);
+        schema_builder.build()
+    }
 }
