@@ -1,9 +1,10 @@
-use crate::config::consts::CONFIG_PATH;
-use log::error;
-use rusqlite::{params, Connection, Row};
 use std::fs;
 use std::process::exit;
 
+use log::error;
+use rusqlite::{Connection, params, Row};
+
+use crate::config::consts::CONFIG_PATH;
 use crate::db::entity::{BasicInfo, Chart, Song};
 
 pub struct MaimaiDB {}
@@ -53,21 +54,24 @@ impl MaimaiDB {
     }
 
     /// 按照传入的 SQL 查询歌曲,预期返回值为 1
-    pub fn search_song(sql: String) -> Option<Song> {
+    pub fn search_song(id: usize) -> Option<Song> {
         let connection = MaimaiDB::get_connection();
-        let mut statement = connection.prepare(sql.as_str()).unwrap();
-        statement.query_row(params![], parse_row).ok()
+        let mut statement = connection.prepare("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where id = ?;").unwrap();
+        statement.query_row(params![id], parse_row).ok()
     }
 
     /// 按照传入的 SQL 查询歌曲列表
-    pub fn search_song_list(sql: &str) -> Vec<Song> {
+    pub fn search_songs(keyword: String) -> Vec<Song> {
         let connection = MaimaiDB::get_connection();
-        let mut statement = connection.prepare(sql).unwrap();
-        statement
-            .query_map(params![], parse_row)
-            .unwrap()
-            .filter_map(Result::ok)
-            .collect()
+        let mut statement = connection.prepare("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title like ?;").unwrap();
+        let result = match statement.query_map(params![format!("%{}%",keyword)], parse_row) {
+            Ok(res) => res,
+            Err(error) => {
+                error!("数据库查询失败,查询关键字:[ {} ]\n[Cause]:{:?}",keyword, error);
+                exit(exitcode::DATAERR)
+            }
+        };
+        result.filter_map(Result::ok).collect()
     }
 }
 
@@ -88,7 +92,7 @@ fn parse_row(row: &Row) -> Result<Song, rusqlite::Error> {
         basic_info: serde_json::from_str::<BasicInfo>(
             row.get::<usize, String>(7).unwrap().as_str(),
         )
-        .expect("basic_info 序列化错误"),
+            .expect("basic_info 序列化错误"),
     };
     Ok(song)
 }

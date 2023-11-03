@@ -1,3 +1,3 @@
-pub mod file_util;
-pub mod printer_handler;
+pub mod file;
+pub mod printer;
 pub mod simple_log;

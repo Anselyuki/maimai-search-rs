@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::process::exit;
 
-use crate::db::database::MaimaiDB;
 use jieba_rs::Jieba;
 use levenshtein::levenshtein;
 use log::warn;
 
+use crate::db::database::MaimaiDB;
 use crate::db::entity::Song;
 
 pub struct DXProberClient {}
@@ -13,25 +13,19 @@ pub struct DXProberClient {}
 /// 用于查询歌曲
 impl DXProberClient {
     /// 按照 id 查询歌曲
-    pub fn search_songs_by_id(id: usize) -> Vec<Song> {
-        let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where id = {};", id);
-        match MaimaiDB::search_song(sql) {
-            None => Vec::new(),
-            Some(song) => {
-                vec![song]
-            }
-        }
+    pub fn search_songs_by_id(id: usize) -> Option<Song> {
+        MaimaiDB::search_song(id)
     }
 
     /// 按照名称查询歌曲
     pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
         let stop_words: HashSet<String> = [
-            "的", " ", "!", "\"", "“", "”", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=",
+            "的", " ", "!", "\'", "\"", "“", "”", "@", "#", "$", "%", "^", "&", "*", "(", ")", "-", "=",
             "+", "[", "]", "{", "}", ";", ":", "<", ">", ",", ".", "/", "?",
         ]
-        .iter()
-        .map(|&s| s.to_string())
-        .collect();
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
         let keywords: Vec<String> = Jieba::new()
             .cut(name, true)
             .iter()
@@ -42,8 +36,7 @@ impl DXProberClient {
 
         let mut partial_song = HashMap::new();
         for keyword in keywords {
-            let sql = format!("SELECT id, title, song_type, ds, level, cids, charts, basic_info from songs where title like '%{}%';", keyword);
-            for song in MaimaiDB::search_song_list(sql.as_str()) {
+            for song in MaimaiDB::search_songs(keyword) {
                 let id = song.clone().id;
                 partial_song.insert(id, song);
             }
@@ -70,6 +63,14 @@ impl DXProberClient {
             .collect();
         songs.sort_by(|a, b| a.0.cmp(&b.0));
         // 选择前5个匹配项
+
+        let dbg: Vec<_> = songs.clone()
+            .into_iter()
+            .take(count)
+            .map(|(levenshtein, song)| (levenshtein,song.title))
+            .collect();
+        dbg!(dbg);
+
         songs
             .into_iter()
             .take(count)

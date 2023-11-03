@@ -3,99 +3,26 @@ extern crate clap;
 
 use std::process::exit;
 
+use clap::Parser;
+use log::error;
+
+use crate::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use crate::config::profiles::Profile;
 use crate::db::database::MaimaiDB;
 use crate::db::entity::Song;
 use crate::service::client::DXProberClient;
 use crate::service::resource::ResourceService;
-use crate::utils::printer_handler::PrinterHandler;
+use crate::utils::printer::PrinterHandler;
 use crate::utils::simple_log;
-use clap::Parser;
-use log::error;
 
 pub mod config;
 pub mod db;
 pub mod service;
 pub mod utils;
 
-/// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
-#[derive(Parser, Debug)]
-#[command(name = "maimai-search", bin_name = "maimai-search")]
-#[command(author, about, version, next_line_help = false)]
-struct Args {
-    // 子命令枚举
-    #[command(subcommand)]
-    command: Option<SubCommands>,
-    /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
-    name: Option<String>,
-    /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
-    #[arg(short, long, default_value = "3")]
-    count: usize,
-    /// 开启详情查询
-    #[arg(short, long)]
-    detail: bool,
-}
-
-#[derive(Subcommand, Debug)]
-enum SubCommands {
-    ///  使用 ID 进行检索，如：maimai-search id 11571 11524
-    Id {
-        /// 检索 ID ,支持多个 ID 检索
-        ids: Vec<usize>,
-        /// 开启详情查询
-        #[arg(short, long)]
-        detail: bool,
-    },
-    /// 使用 markdown 格式输出
-    Md {
-        #[command(subcommand)]
-        command: Option<MarkdownSubCommands>,
-        /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
-        name: Option<String>,
-        /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
-        #[arg(short, long, default_value = "3")]
-        count: usize,
-        /// 开启详情查询
-        #[arg(short, long)]
-        detail: bool,
-        /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
-        #[arg(short, long)]
-        output: Option<String>,
-    },
-    /// 更新谱面信息数据库
-    Update {},
-    /// 更新资源文件
-    Resource {
-        /// 强制更新资源文件
-        #[arg(short, long)]
-        force: bool,
-    },
-    /// 配置文件管理,详情请运行 maimai-search config --help
-    Config {
-        /// 在配置文件夹内创建默认配置文件
-        #[arg(short, long)]
-        default: bool,
-    },
-}
-
-/// 使用 markdown 格式输出
-#[derive(Subcommand, Debug)]
-enum MarkdownSubCommands {
-    Id {
-        /// 检索 ID ,支持多个 ID 检索
-        ids: Vec<usize>,
-        /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
-        #[arg(short, long)]
-        output: Option<String>,
-        /// 开启详情查询
-        #[arg(short, long)]
-        detail: bool,
-    },
-}
-
 fn main() {
     simple_log::init().unwrap();
-    let args = Args::parse();
+    let args = MaimaiSearchArgs::parse();
     MaimaiDB::init();
 
     // 主要处理命令触发的逻辑
@@ -104,7 +31,7 @@ fn main() {
         None => {
             if let Some(name) = args.name {
                 let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
-                PrinterHandler::new(songs, args.detail, false, None);
+                PrinterHandler::new(songs, args.detail, false, None, None);
             } else {
                 error_handler();
             }
@@ -114,8 +41,8 @@ fn main() {
             let songs = ids
                 .iter()
                 .flat_map(|id| DXProberClient::search_songs_by_id(*id))
-                .collect::<Vec<Song>>();
-            PrinterHandler::new(songs, detail, false, None);
+                .collect();
+            PrinterHandler::new(songs, detail, false, None, None);
         }
         // 更新数据库子命令
         Some(SubCommands::Update {}) => ResourceService::update_songs_data(),
@@ -134,11 +61,12 @@ fn main() {
             count,
             detail,
             output,
+            add,
         }) => match command {
             None => {
                 if let Some(name) = name {
                     let songs = DXProberClient::search_songs_by_name(name.as_str(), count);
-                    PrinterHandler::new(songs, detail, true, output);
+                    PrinterHandler::new(songs, detail, true, output, add);
                 } else {
                     error_handler();
                 }
@@ -147,12 +75,14 @@ fn main() {
                 ids,
                 output,
                 detail,
+                add,
             }) => {
                 let songs = ids
                     .iter()
                     .flat_map(|id| DXProberClient::search_songs_by_id(*id))
-                    .collect::<Vec<Song>>();
-                PrinterHandler::new(songs, detail, true, output);
+                    .collect();
+                dbg!(&songs);
+                PrinterHandler::new(songs, detail, true, output, add);
             }
         },
     }
