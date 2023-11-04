@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::io::Error;
 
-use serde::{Deserialize, Serialize};
-use tantivy::schema::{Field, Schema, STORED, TEXT};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use tantivy::schema::{Field, Schema, INDEXED, STORED, TEXT};
 use tantivy::Document;
 
 use crate::config::consts::SONG_SCHEMA;
@@ -11,7 +11,9 @@ use crate::config::consts::SONG_SCHEMA;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Song {
     /// 歌曲 ID
-    pub id: String,
+    #[serde(serialize_with = "serialize_usize_as_string")]
+    #[serde(deserialize_with = "deserialize_usize_from_string")]
+    pub id: usize,
     /// 歌曲标题
     pub title: String,
     /// 歌曲类型
@@ -27,6 +29,28 @@ pub struct Song {
     pub charts: Vec<Chart>,
     /// 基本信息
     pub basic_info: BasicInfo,
+}
+
+fn serialize_usize_as_string<S>(id: &usize, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&id.to_string())
+}
+
+/// 序列化 usize 为字符串
+///
+/// 从远程获取的数据中,歌曲 ID 为字符串
+///
+/// 但是这个字段全部都是正整数类型,故在本地索引中,序列化歌曲 ID 为 usize
+fn deserialize_usize_from_string<'de, D>(deserializer: D) -> Result<usize, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let id_str: String = Deserialize::deserialize(deserializer)?;
+    id_str
+        .parse()
+        .map_err(|_| serde::de::Error::custom("expected a string containing a number"))
 }
 
 /// 谱面
@@ -89,7 +113,7 @@ impl Song {
     pub fn init_schema() -> Schema {
         let mut schema_builder = Schema::builder();
         // 被索引的字段为 id 与 title
-        schema_builder.add_text_field("id", TEXT | STORED);
+        schema_builder.add_u64_field("id", INDEXED | STORED);
         schema_builder.add_text_field("title", TEXT | STORED);
         // 其余的字段为存储字段,不被索引
         schema_builder.add_text_field("song_type", STORED);
@@ -103,7 +127,7 @@ impl Song {
 
     pub fn document(&self) -> Result<Document, serde_json::Error> {
         let mut document = Document::new();
-        document.add_text(Self::field(SongField::Id), &self.id);
+        document.add_u64(Self::field(SongField::Id), self.id as u64);
         document.add_text(Self::field(SongField::Title), &self.title);
         document.add_text(Self::field(SongField::SongType), &self.song_type);
         document.add_text(Self::field(SongField::Ds), serde_json::to_string(&self.ds)?);
@@ -137,9 +161,9 @@ impl Song {
             id: retrieved_doc
                 .get_first(schema.get_field("id").expect("获取字段失败"))
                 .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
-                .as_text()
+                .as_u64()
                 .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
-                .to_string(),
+                as usize,
             title: retrieved_doc
                 .get_first(schema.get_field("title").expect("获取字段失败"))
                 .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?

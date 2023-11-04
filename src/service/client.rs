@@ -7,11 +7,11 @@ pub struct DXProberClient {}
 impl DXProberClient {
     /// 按照 id 查询歌曲
     pub fn search_songs_by_id(id: usize) -> Option<Song> {
-        MaimaiDB::search_song(id)
+        MaimaiDB::search_song_by_id(id)
     }
 
     /// 按照名称查询歌曲
     pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
-        Vec::new()
+        MaimaiDB::search_songs_by_title(name, count)
     }
 }

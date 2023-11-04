@@ -2,9 +2,9 @@ use std::process::exit;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use log::error;
-use tantivy::{Index, IndexReader, IndexWriter};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
+use tantivy::{Index, IndexWriter, Searcher};
 
 use crate::config::consts::{CONFIG_PATH, SONG_SCHEMA};
 use crate::db::entity::{Song, SongField};
@@ -17,7 +17,7 @@ impl MaimaiDB {
     /// 获取写入器
     pub fn get_writer() -> IndexWriter {
         let index = Self::get_index();
-        match index.writer(15000000) {
+        match index.writer(15_000_000) {
             Ok(writer) => writer,
             Err(error) => {
                 error!("获取写入器时出现错误: {:?}", error);
@@ -26,10 +26,10 @@ impl MaimaiDB {
         }
     }
 
-    pub fn get_reader() -> IndexReader {
+    pub fn get_searcher() -> Searcher {
         let index = Self::get_index();
         match index.reader() {
-            Ok(reader) => reader,
+            Ok(reader) => reader.searcher(),
             Err(error) => {
                 error!("获取读取器时出现错误: {:?}", error);
                 exit(exitcode::IOERR)
@@ -90,16 +90,13 @@ impl MaimaiDB {
     /// 删除表并重新创建
     pub fn re_create_table() {}
 
-    /// 按照传入的 ID 查询歌曲,预期返回值为 1
-    pub fn search_song(id: usize) -> Option<Song> {
-        let reader = Self::get_reader();
-        let searcher = reader.searcher();
-
+    /// 按照传入的 ID 查询歌曲,精确查询
+    pub fn search_song_by_id(id: usize) -> Option<Song> {
+        let searcher = Self::get_searcher();
         let query_parser =
             QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Id)]);
         let query = query_parser.parse_query(id.to_string().as_str()).unwrap();
 
-        // ID 是唯一的,所以只需要返回一个结果
         let top_docs = match searcher.search(&query, &TopDocs::with_limit(1)) {
             Ok(top_docs) => top_docs,
             Err(error) => {
@@ -108,27 +105,52 @@ impl MaimaiDB {
             }
         };
 
-        match top_docs.len() {
-            0 => None,
-            1 => {
-                let retrieved_doc = searcher.doc(top_docs[0].1).unwrap();
-                Some(match Song::from_document(retrieved_doc) {
+        // ID 是唯一的,所以只会有一个结果
+        return match top_docs.len() {
+            1 => Some(
+                match Song::from_document(searcher.doc(top_docs[0].1).unwrap()) {
                     Ok(song) => song,
                     Err(error) => {
                         error!("反序列化错误\n[Cause]:{:?}", error);
                         exit(exitcode::IOERR)
                     }
-                })
-            }
-            _ => {
-                error!("查询歌曲[{}]时出现错误\n[Cause]:{}", id, "查询结果大于 1");
-                exit(exitcode::IOERR)
-            }
-        }
+                },
+            ),
+            _ => None,
+        };
     }
 
-    /// 按照传入的 SQL 查询歌曲列表
-    pub fn search_songs(keyword: String) -> Vec<Song> {
+    /// 按照 title 字段模糊查询歌曲
+    ///
+    /// TODO 未完成，这该死的模糊查询有问题，不知道是不是 tantivy 的问题还是什么问题，反正就是查不出
+    ///
+    /// 例如
+    ///
+    /// ```shell
+    /// maimai-search md "ハム太郎"
+    /// ```
+    ///
+    /// 这样是查不出来的，但是
+    ///
+    /// ```shell
+    /// maimai-search md "ハム太郎とっとこうた"
+    /// ```
+    ///
+    /// 这样就可以查出来，但是这样就不是模糊查询了，是精确查询
+    pub fn search_songs_by_title(param: &str, count: usize) -> Vec<Song> {
+        let searcher = Self::get_searcher();
+        let mut query_parser =
+            QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Title)]);
+        query_parser.set_field_fuzzy(Song::field(SongField::Title), false, 2, false);
+        dbg!(param);
+
+        let query = query_parser.parse_query(param).unwrap();
+
+        dbg!(&query);
+
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(count));
+        dbg!(top_docs).expect("TODO: panic message");
+
         Vec::new()
     }
 }
