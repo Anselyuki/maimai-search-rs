@@ -122,7 +122,7 @@ impl MarkdownPrinter {
         }
     }
 
-    fn addition_file() {
-        //TODO 追加模式写入md数据
-    }
+    // fn addition_file() {
+    //     //TODO 追加模式写入md数据
+    // }
 }

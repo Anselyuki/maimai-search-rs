@@ -9,7 +9,7 @@ use log::error;
 use crate::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use crate::config::profiles::Profile;
 use crate::db::database::MaimaiDB;
-use crate::db::entity::Song;
+//use crate::db::entity::Song;
 use crate::service::client::DXProberClient;
 use crate::service::resource::ResourceService;
 use crate::utils::printer::PrinterHandler;
