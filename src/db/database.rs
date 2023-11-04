@@ -2,9 +2,9 @@ use std::process::exit;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use log::error;
+use tantivy::{Index, IndexWriter, Searcher};
 use tantivy::collector::TopDocs;
 use tantivy::query::QueryParser;
-use tantivy::{Index, IndexWriter, Searcher};
 
 use crate::config::consts::{CONFIG_PATH, SONG_SCHEMA};
 use crate::db::entity::{Song, SongField};
@@ -141,16 +141,29 @@ impl MaimaiDB {
         let searcher = Self::get_searcher();
         let mut query_parser =
             QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Title)]);
+
+        // 设置模糊查询(按道理)
         query_parser.set_field_fuzzy(Song::field(SongField::Title), false, 2, false);
         dbg!(param);
 
         let query = query_parser.parse_query(param).unwrap();
 
         dbg!(&query);
+        let top_docs = match searcher.search(&query, &TopDocs::with_limit(count)) {
+            Ok(top_docs) => top_docs,
+            Err(error) => {
+                error!("查询歌曲[{}]时出现错误\n[Cause]:{:?}", param, error);
+                exit(exitcode::IOERR)
+            }
+        };
+        dbg!(&top_docs);
 
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(count));
-        dbg!(top_docs).expect("TODO: panic message");
-
-        Vec::new()
+        let mut songs = Vec::new();
+        for (_, top_doc) in top_docs {
+            let doc = searcher.doc(top_doc).unwrap();
+            let song = Song::from_document(doc).unwrap();
+            songs.push(song);
+        }
+        songs
     }
 }
