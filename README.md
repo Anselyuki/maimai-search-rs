@@ -31,13 +31,13 @@ maimai-search.exe update
 ## 主要功能
 
 ### 模糊搜索
-    输入希望查询的歌名的部分信息（比如 `初音` ）
+输入希望查询的歌名的部分信息（比如 `初音` ）
 
 ```bash
 maimai-search 初音
 ```
 
-    显示模糊搜索可匹配到的n个结果（n为参数）
+显示模糊搜索可匹配到的n个结果（n为参数）
 
 ```bash
 maimai-search S -c 200
