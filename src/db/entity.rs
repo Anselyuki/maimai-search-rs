@@ -1,5 +1,11 @@
+use std::fmt::Debug;
+use std::io::Error;
+
 use serde::{Deserialize, Serialize};
-use tantivy::schema::{Schema, STORED, TEXT};
+use tantivy::schema::{Field, Schema, STORED, TEXT};
+use tantivy::Document;
+
+use crate::config::consts::SONG_SCHEMA;
 
 /// 歌曲
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -51,17 +57,141 @@ pub struct BasicInfo {
     pub is_new: bool,
 }
 
+#[derive(PartialEq)]
+pub enum SongField {
+    Id,
+    Title,
+    SongType,
+    Ds,
+    Level,
+    Cids,
+    Charts,
+    BasicInfo,
+}
+
+impl SongField {
+    pub fn to_string(&self) -> &str {
+        match self {
+            SongField::Id => "id",
+            SongField::Title => "title",
+            SongField::SongType => "song_type",
+            SongField::Ds => "ds",
+            SongField::Level => "level",
+            SongField::Cids => "cids",
+            SongField::Charts => "charts",
+            SongField::BasicInfo => "basic_info",
+        }
+    }
+}
+
 impl Song {
-    pub(crate) fn get_schema() -> Schema {
+    /// 获取 Tantivy 的 schema 与所有的字段列
+    pub fn init_schema() -> Schema {
         let mut schema_builder = Schema::builder();
+        // 被索引的字段为 id 与 title
         schema_builder.add_text_field("id", TEXT | STORED);
         schema_builder.add_text_field("title", TEXT | STORED);
-        schema_builder.add_text_field("song_type", TEXT | STORED);
-        schema_builder.add_u64_field("ds", STORED);
-        schema_builder.add_u64_field("level", STORED);
-        schema_builder.add_facet_field("cids", ());
-        schema_builder.add_facet_field("charts", ());
-        schema_builder.add_text_field("basic_info", TEXT | STORED);
+        // 其余的字段为存储字段,不被索引
+        schema_builder.add_text_field("song_type", STORED);
+        schema_builder.add_text_field("ds", STORED);
+        schema_builder.add_text_field("level", STORED);
+        schema_builder.add_text_field("cids", STORED);
+        schema_builder.add_text_field("charts", STORED);
+        schema_builder.add_text_field("basic_info", STORED);
         schema_builder.build()
+    }
+
+    pub fn document(&self) -> Result<Document, serde_json::Error> {
+        let mut document = Document::new();
+        document.add_text(Self::field(SongField::Id), &self.id);
+        document.add_text(Self::field(SongField::Title), &self.title);
+        document.add_text(Self::field(SongField::SongType), &self.song_type);
+        document.add_text(Self::field(SongField::Ds), serde_json::to_string(&self.ds)?);
+        document.add_text(
+            Self::field(SongField::Level),
+            serde_json::to_string(&self.level)?,
+        );
+        document.add_text(
+            Self::field(SongField::Cids),
+            serde_json::to_string(&self.cids)?,
+        );
+        document.add_text(
+            Self::field(SongField::Charts),
+            serde_json::to_string(&self.charts)?,
+        );
+        document.add_text(
+            Self::field(SongField::BasicInfo),
+            &serde_json::to_string(&self.basic_info)?,
+        );
+        Ok(document)
+    }
+
+    /// 单独获取字段(静态方法)
+    pub fn field(song_field: SongField) -> Field {
+        SONG_SCHEMA.get_field(song_field.to_string()).unwrap()
+    }
+
+    pub fn from_document(retrieved_doc: Document) -> Result<Song, Error> {
+        let schema = SONG_SCHEMA.clone();
+        Ok(Song {
+            id: retrieved_doc
+                .get_first(schema.get_field("id").expect("获取字段失败"))
+                .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                .as_text()
+                .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
+                .to_string(),
+            title: retrieved_doc
+                .get_first(schema.get_field("title").expect("获取字段失败"))
+                .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                .as_text()
+                .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
+                .to_string(),
+            song_type: retrieved_doc
+                .get_first(schema.get_field("song_type").expect("获取字段失败"))
+                .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                .as_text()
+                .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
+                .to_string(),
+            ds: serde_json::from_str::<Vec<f32>>(
+                retrieved_doc
+                    .get_first(schema.get_field("ds").expect("获取字段失败"))
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                    .as_text()
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
+            )
+            .expect("反序列化失败"),
+            level: serde_json::from_str::<Vec<String>>(
+                retrieved_doc
+                    .get_first(schema.get_field("level").expect("获取字段失败"))
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                    .as_text()
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
+            )
+            .expect("反序列化失败"),
+            cids: serde_json::from_str::<Vec<u32>>(
+                retrieved_doc
+                    .get_first(schema.get_field("cids").expect("获取字段失败"))
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                    .as_text()
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
+            )
+            .expect("反序列化失败"),
+            charts: serde_json::from_str::<Vec<Chart>>(
+                retrieved_doc
+                    .get_first(schema.get_field("charts").expect("获取字段失败"))
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                    .as_text()
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
+            )
+            .expect("反序列化失败"),
+            basic_info: serde_json::from_str::<BasicInfo>(
+                retrieved_doc
+                    .get_first(schema.get_field("basic_info").expect("获取字段失败"))
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                    .as_text()
+                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
+            )
+            .expect("反序列化失败"),
+        })
     }
 }

@@ -12,7 +12,7 @@ use reqwest::blocking::Response;
 use zip::ZipArchive;
 
 use crate::config::consts::{CONFIG_PATH, PROFILE};
-use crate::db::database::{MaimaiDB, TantivyDB};
+use crate::db::database::MaimaiDB;
 use crate::db::entity::Song;
 
 pub struct ResourceService {}

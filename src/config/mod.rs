@@ -10,7 +10,9 @@ pub mod consts {
     use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
     use prettytable::format::*;
     use prettytable::{Attr, Cell};
+    use tantivy::schema::Schema;
 
+    use crate::db::entity::Song;
     use crate::Profile;
 
     lazy_static! {
@@ -26,6 +28,7 @@ pub mod consts {
             .column_separator('|').borders('|')
             .separators(&[LinePosition::Title], LineSeparator::new('-', '|', '|', '|'))
             .padding(1, 1).build();
+        pub static ref SONG_SCHEMA: Schema = Song::init_schema();
     }
 }
 
