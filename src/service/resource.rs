@@ -13,25 +13,14 @@ use zip::ZipArchive;
 
 use crate::config::consts::{CONFIG_PATH, PROFILE};
 use crate::db::database::MaimaiDB;
-use crate::db::entity::Song;
+use crate::service::client::DXProberClient;
 
 pub struct ResourceService {}
 
 impl ResourceService {
     /// 更新谱面信息和下载静态文件
     pub fn update_songs_data() {
-        let url = &PROFILE.remote_api.json_url;
-        info!("正在从[{}]下载谱面信息", url);
-
-        let songs = match reqwest::blocking::get(url) {
-            Ok(response) => response.json::<Vec<Song>>(),
-            Err(error) => {
-                error!("获取服务器信息出错:{:?}", error);
-                exit(exitcode::UNAVAILABLE)
-            }
-        }
-        .unwrap();
-
+        let songs = DXProberClient::get_song_metadata();
         MaimaiDB::update_database(&songs);
     }
 

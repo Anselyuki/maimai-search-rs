@@ -143,10 +143,10 @@ impl MaimaiDB {
             QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Title)]);
 
         // 设置模糊查询(按道理)
-        query_parser.set_field_fuzzy(Song::field(SongField::Title), false, 2, false);
+        query_parser.set_field_fuzzy(Song::field(SongField::Title), true, 1, true);
         dbg!(param);
 
-        let query = query_parser.parse_query(param).unwrap();
+        let query = query_parser.parse_query(format!("{}*", param).as_str()).unwrap();
 
         dbg!(&query);
         let top_docs = match searcher.search(&query, &TopDocs::with_limit(count)) {
