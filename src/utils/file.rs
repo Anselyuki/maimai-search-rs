@@ -1,7 +1,7 @@
 use std::fs::{create_dir, File, OpenOptions};
-use std::io;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::{fs, io};
 
 use log::error;
 
@@ -11,7 +11,7 @@ pub struct FileUtils {}
 
 impl FileUtils {
     /// 如果路径存在则创建
-    pub fn create_not_exists(path: &PathBuf) {
+    pub fn create_dir(path: &PathBuf) {
         if !path.exists() {
             if let Err(error) = create_dir(path) {
                 error!("创建文件/文件夹失败!\n[Cause]{:?}", error)
@@ -23,6 +23,27 @@ impl FileUtils {
         let path = Path::new(filename);
         let stem = path.file_stem().unwrap();
         stem.to_string_lossy().to_string()
+    }
+
+    /// 删除文件夹中的所有内容
+    pub fn delete_folder_contents(folder_path: &Path) -> io::Result<()> {
+        // 检查指定路径是否为文件夹
+        if folder_path.is_dir() {
+            // 遍历目录中的所有文件和子文件夹
+            for entry in fs::read_dir(folder_path)? {
+                let file = entry?.path();
+                if file.is_dir() {
+                    // 递归地删除子文件夹中的所有文件
+                    Self::delete_folder_contents(&file)?;
+                    // 删除空的子文件夹
+                    fs::remove_dir(file)?;
+                } else {
+                    // 删除文件
+                    fs::remove_file(file)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// MD 文件名合法性处理

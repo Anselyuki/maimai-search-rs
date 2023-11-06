@@ -27,7 +27,7 @@ fn main() {
         // 子命令为空时,表示使用主功能: 按照名称查询
         None => {
             if let Some(name) = args.name {
-                let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
+                let songs = DXProberClient::search_songs_by_title(name.as_str(), args.count);
                 PrinterHandler::new(songs, args.detail, false, None, None);
             } else {
                 error_handler();
@@ -62,7 +62,7 @@ fn main() {
         }) => match command {
             None => {
                 if let Some(name) = name {
-                    let songs = DXProberClient::search_songs_by_name(name.as_str(), count);
+                    let songs = DXProberClient::search_songs_by_title(name.as_str(), count);
                     PrinterHandler::new(songs, detail, true, output, add);
                 } else {
                     error_handler();
