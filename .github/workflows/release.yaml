@@ -58,12 +58,12 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
-          profile: minimal
+          profile: default
           override: true
           target: ${{ matrix.target }}
 
       - name: Build binary
-        run: cargo build --verbose --release --target ${{ matrix.target }} --no-default-features
+        run: cargo build --verbose --release --target ${{ matrix.target }}
         env:
           RUST_BACKTRACE: 1
 
