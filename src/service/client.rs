@@ -1,6 +1,6 @@
 use std::process::exit;
 
-use log::{error, info};
+use log::{error, info, warn};
 
 use crate::config::consts::PROFILE;
 use crate::db::database::MaimaiDB;
@@ -35,7 +35,15 @@ impl DXProberClient {
     }
 
     /// 按照名称查询歌曲
-    pub fn search_songs_by_name(name: &str, count: usize) -> Vec<Song> {
-        MaimaiDB::search_songs_by_title(name, count)
+    pub fn search_songs_by_title(param: &str, count: usize) -> Vec<Song> {
+        let songs = MaimaiDB::search_songs_by_title(param.to_lowercase().as_str(), count);
+        if songs.is_empty() {
+            warn!(
+                "查询参数[{}]找不到对应的歌曲!请尝试给出更多关键字或者更新数据",
+                param
+            );
+            exit(exitcode::OK);
+        }
+        songs
     }
 }

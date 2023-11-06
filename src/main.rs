@@ -4,7 +4,7 @@ extern crate clap;
 use std::process::exit;
 
 use clap::Parser;
-use log::error;
+use log::{error, info};
 
 use crate::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use crate::config::profiles::Profile;
@@ -27,7 +27,7 @@ fn main() {
         // 子命令为空时,表示使用主功能: 按照名称查询
         None => {
             if let Some(name) = args.name {
-                let songs = DXProberClient::search_songs_by_name(name.as_str(), args.count);
+                let songs = DXProberClient::search_songs_by_title(name.as_str(), args.count);
                 PrinterHandler::new(songs, args.detail, false, None, None);
             } else {
                 error_handler();
@@ -44,7 +44,7 @@ fn main() {
         // 更新数据库子命令
         Some(SubCommands::Update {}) => ResourceService::update_songs_data(),
         // 更新资源文件子命令
-        Some(SubCommands::Resource { force }) => ResourceService::update_resource(force),
+        Some(SubCommands::Resource { force}) => ResourceService::update_resource(force),
         // 配置文件管理子命令
         Some(SubCommands::Config { default }) => {
             if default {
@@ -53,27 +53,27 @@ fn main() {
         }
         // markdown 输出子命令
         Some(SubCommands::Md {
-            command,
-            name,
-            count,
-            detail,
-            output,
-            add,
-        }) => match command {
+                 command,
+                 name,
+                 count,
+                 detail,
+                 output,
+                 add,
+             }) => match command {
             None => {
                 if let Some(name) = name {
-                    let songs = DXProberClient::search_songs_by_name(name.as_str(), count);
+                    let songs = DXProberClient::search_songs_by_title(name.as_str(), count);
                     PrinterHandler::new(songs, detail, true, output, add);
                 } else {
                     error_handler();
                 }
             }
             Some(MarkdownSubCommands::Id {
-                ids,
-                output,
-                detail,
-                add,
-            }) => {
+                     ids,
+                     output,
+                     detail,
+                     add,
+                 }) => {
                 let songs = ids
                     .iter()
                     .flat_map(|id| DXProberClient::search_songs_by_id(*id))

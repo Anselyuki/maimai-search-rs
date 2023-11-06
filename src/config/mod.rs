@@ -44,7 +44,7 @@ pub mod command {
         /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
         pub name: Option<String>,
         /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
-        #[arg(short, long, default_value = "3")]
+        #[arg(short, long, default_value = "5")]
         pub count: usize,
         /// 开启详情查询
         #[arg(short, long)]
@@ -68,7 +68,7 @@ pub mod command {
             /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
             name: Option<String>,
             /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
-            #[arg(short, long, default_value = "3")]
+            #[arg(short, long, default_value = "5")]
             count: usize,
             /// 开启详情查询
             #[arg(short, long)]

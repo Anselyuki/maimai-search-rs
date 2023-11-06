@@ -29,5 +29,7 @@ colored = "1.9.4"
 zip = "0.5.13"
 # 日志接口
 log = "0.4.20"
+# 分词与搜索
 tantivy = "0.21.1"
-stop-words = "0.8.0"
+tantivy-jieba = "0.10.0"
+zhconv = "0.3.0"

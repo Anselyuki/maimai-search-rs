@@ -2,8 +2,10 @@ use std::fmt::Debug;
 use std::io::Error;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tantivy::schema::{Field, Schema, INDEXED, STORED, TEXT};
-use tantivy::Document;
+use tantivy::{doc, Document};
+use tantivy::schema::{
+    FAST, Field, INDEXED, IndexRecordOption, Schema, STORED, TextFieldIndexing, TextOptions,
+};
 
 use crate::config::consts::SONG_SCHEMA;
 
@@ -32,8 +34,8 @@ pub struct Song {
 }
 
 fn serialize_usize_as_string<S>(id: &usize, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
+    where
+        S: Serializer,
 {
     serializer.serialize_str(&id.to_string())
 }
@@ -44,8 +46,8 @@ where
 ///
 /// 但是这个字段全部都是正整数类型,故在本地索引中,序列化歌曲 ID 为 usize
 fn deserialize_usize_from_string<'de, D>(deserializer: D) -> Result<usize, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
 {
     let id_str: String = Deserialize::deserialize(deserializer)?;
     id_str
@@ -84,6 +86,7 @@ pub struct BasicInfo {
 #[derive(PartialEq)]
 pub enum SongField {
     Id,
+    Keyword,
     Title,
     SongType,
     Ds,
@@ -97,6 +100,7 @@ impl SongField {
     pub fn to_string(&self) -> &str {
         match self {
             SongField::Id => "id",
+            SongField::Keyword => "keyword",
             SongField::Title => "title",
             SongField::SongType => "song_type",
             SongField::Ds => "ds",
@@ -113,8 +117,13 @@ impl Song {
     pub fn init_schema() -> Schema {
         let mut schema_builder = Schema::builder();
         // 被索引的字段为 id 与 title
-        schema_builder.add_u64_field("id", INDEXED | STORED);
-        schema_builder.add_text_field("title", TEXT | STORED);
+        schema_builder.add_u64_field("id", INDEXED | FAST | STORED);
+        let text_field_indexing = TextFieldIndexing::default()
+            .set_tokenizer("jieba")
+            .set_index_option(IndexRecordOption::WithFreqsAndPositions);
+        let text_field = TextOptions::default().set_indexing_options(text_field_indexing);
+        schema_builder.add_text_field("keyword", text_field | STORED | FAST);
+        schema_builder.add_text_field("title", STORED);
         // 其余的字段为存储字段,不被索引
         schema_builder.add_text_field("song_type", STORED);
         schema_builder.add_text_field("ds", STORED);
@@ -126,28 +135,18 @@ impl Song {
     }
 
     pub fn document(&self) -> Result<Document, serde_json::Error> {
-        let mut document = Document::new();
-        document.add_u64(Self::field(SongField::Id), self.id as u64);
-        document.add_text(Self::field(SongField::Title), &self.title);
-        document.add_text(Self::field(SongField::SongType), &self.song_type);
-        document.add_text(Self::field(SongField::Ds), serde_json::to_string(&self.ds)?);
-        document.add_text(
-            Self::field(SongField::Level),
-            serde_json::to_string(&self.level)?,
+        let doc = doc!(
+            Self::field(SongField::Id) => self.id.clone() as u64,
+            Self::field(SongField::Keyword) => &*self.title.to_lowercase(),
+            Self::field(SongField::Title) => &*self.title,
+            Self::field(SongField::SongType) => &*self.song_type,
+            Self::field(SongField::Ds) => serde_json::to_string(&self.ds)?,
+            Self::field(SongField::Level) => serde_json::to_string(&self.level)?,
+            Self::field(SongField::Cids) => serde_json::to_string(&self.cids)?,
+            Self::field(SongField::Charts) => serde_json::to_string(&self.charts)?,
+            Self::field(SongField::BasicInfo) => serde_json::to_string(&self.basic_info)?,
         );
-        document.add_text(
-            Self::field(SongField::Cids),
-            serde_json::to_string(&self.cids)?,
-        );
-        document.add_text(
-            Self::field(SongField::Charts),
-            serde_json::to_string(&self.charts)?,
-        );
-        document.add_text(
-            Self::field(SongField::BasicInfo),
-            &serde_json::to_string(&self.basic_info)?,
-        );
-        Ok(document)
+        Ok(doc)
     }
 
     /// 单独获取字段(静态方法)
@@ -155,7 +154,7 @@ impl Song {
         SONG_SCHEMA.get_field(song_field.to_string()).unwrap()
     }
 
-    pub fn from_document(retrieved_doc: Document) -> Result<Song, Error> {
+    pub fn from_document(retrieved_doc: &Document) -> Result<Song, Error> {
         let schema = SONG_SCHEMA.clone();
         Ok(Song {
             id: retrieved_doc
@@ -183,7 +182,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             level: serde_json::from_str::<Vec<String>>(
                 retrieved_doc
                     .get_first(schema.get_field("level").expect("获取字段失败"))
@@ -191,7 +190,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             cids: serde_json::from_str::<Vec<u32>>(
                 retrieved_doc
                     .get_first(schema.get_field("cids").expect("获取字段失败"))
@@ -199,7 +198,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             charts: serde_json::from_str::<Vec<Chart>>(
                 retrieved_doc
                     .get_first(schema.get_field("charts").expect("获取字段失败"))
@@ -207,7 +206,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             basic_info: serde_json::from_str::<BasicInfo>(
                 retrieved_doc
                     .get_first(schema.get_field("basic_info").expect("获取字段失败"))
@@ -215,7 +214,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
         })
     }
 }
