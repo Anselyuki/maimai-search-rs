@@ -7,9 +7,9 @@ pub mod consts {
 
     use lazy_static::lazy_static;
     use platform_dirs::AppDirs;
+    use prettytable::{Attr, Cell};
     use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
     use prettytable::format::*;
-    use prettytable::{Attr, Cell};
     use tantivy::schema::Schema;
 
     use crate::db::entity::Song;
@@ -38,17 +38,31 @@ pub mod command {
     #[command(name = "maimai-search", bin_name = "maimai-search")]
     #[command(author, about, version, next_line_help = false)]
     pub struct MaimaiSearchArgs {
-        // 子命令枚举
-        #[command(subcommand)]
-        pub command: Option<SubCommands>,
         /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
         pub name: Option<String>,
+        /// 谱面等级
+        #[arg(value_enum)]
+        pub level: Option<ChartLevel>,
         /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
         #[arg(short, long, default_value = "5")]
         pub count: usize,
         /// 开启详情查询
         #[arg(short, long)]
         pub detail: bool,
+
+        // 子命令枚举
+        #[command(subcommand)]
+        pub command: Option<SubCommands>,
+    }
+
+    /// 谱面等级
+    #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+    pub enum ChartLevel {
+        BSC,
+        ADV,
+        EXP,
+        MST,
+        REM,
     }
 
     #[derive(Subcommand, Debug)]

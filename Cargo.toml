@@ -33,3 +33,7 @@ log = "0.4.20"
 tantivy = "0.21.1"
 tantivy-jieba = "0.10.0"
 zhconv = "0.3.0"
+
+[dev-dependencies]
+assert_cmd = "2.0.12"
+predicates = "3.0.4"

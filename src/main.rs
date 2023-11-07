@@ -44,7 +44,7 @@ fn main() {
         // 更新数据库子命令
         Some(SubCommands::Update {}) => ResourceService::update_songs_data(),
         // 更新资源文件子命令
-        Some(SubCommands::Resource { force}) => ResourceService::update_resource(force),
+        Some(SubCommands::Resource { force }) => ResourceService::update_resource(force),
         // 配置文件管理子命令
         Some(SubCommands::Config { default }) => {
             if default {
@@ -53,13 +53,13 @@ fn main() {
         }
         // markdown 输出子命令
         Some(SubCommands::Md {
-                 command,
-                 name,
-                 count,
-                 detail,
-                 output,
-                 add,
-             }) => match command {
+            command,
+            name,
+            count,
+            detail,
+            output,
+            add,
+        }) => match command {
             None => {
                 if let Some(name) = name {
                     let songs = DXProberClient::search_songs_by_title(name.as_str(), count);
@@ -69,11 +69,11 @@ fn main() {
                 }
             }
             Some(MarkdownSubCommands::Id {
-                     ids,
-                     output,
-                     detail,
-                     add,
-                 }) => {
+                ids,
+                output,
+                detail,
+                add,
+            }) => {
                 let songs = ids
                     .iter()
                     .flat_map(|id| DXProberClient::search_songs_by_id(*id))
