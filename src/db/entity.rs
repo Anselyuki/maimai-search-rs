@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::io::Error;
+use std::process::exit;
 
+use log::error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tantivy::schema::{
     Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, FAST, INDEXED, STORED,
@@ -33,6 +35,9 @@ pub struct Song {
     pub basic_info: BasicInfo,
 }
 
+/// # 序列化 usize 为 String
+///
+/// 从远程获取的数据中,歌曲 ID 为字符串,本函数用于序列化 ID 字段
 fn serialize_usize_as_string<S>(id: &usize, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
@@ -40,11 +45,9 @@ where
     serializer.serialize_str(&id.to_string())
 }
 
-/// 序列化 usize 为字符串
+/// # 反序列化 String 为 usize
 ///
-/// 从远程获取的数据中,歌曲 ID 为字符串
-///
-/// 但是这个字段全部都是正整数类型,故在本地索引中,序列化歌曲 ID 为 usize
+/// 从远程获取的数据中,歌曲 ID 为字符串,本函数用于反序列化 ID 字段
 fn deserialize_usize_from_string<'de, D>(deserializer: D) -> Result<usize, D::Error>
 where
     D: Deserializer<'de>,
@@ -55,7 +58,7 @@ where
         .map_err(|_| serde::de::Error::custom("expected a string containing a number"))
 }
 
-/// 谱面
+/// 谱面信息
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Chart {
     /// Note 数量分布
@@ -64,7 +67,7 @@ pub struct Chart {
     pub charter: String,
 }
 
-/// 基本信息
+/// 歌曲基本信息
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BasicInfo {
     /// 歌曲标题
@@ -83,6 +86,7 @@ pub struct BasicInfo {
     pub is_new: bool,
 }
 
+/// 歌曲字段枚举,主要添加 Keywords 对 Tantivy 定制查询提供方便
 #[derive(PartialEq)]
 pub enum SongField {
     Id,
@@ -97,6 +101,7 @@ pub enum SongField {
 }
 
 impl SongField {
+    /// 各个字段对应在 Tantivy Schema 里的 Field 名称
     pub fn to_string(&self) -> &str {
         match self {
             SongField::Id => "id",
@@ -113,7 +118,7 @@ impl SongField {
 }
 
 impl Song {
-    /// 获取 Tantivy 的 schema 与所有的字段列
+    /// 获取 Tantivy 的 schema
     pub fn init_schema() -> Schema {
         let mut schema_builder = Schema::builder();
         // 被索引的字段为 id 与 title
@@ -134,6 +139,7 @@ impl Song {
         schema_builder.build()
     }
 
+    /// 获得当前歌曲的文档类
     pub fn document(&self) -> Result<Document, serde_json::Error> {
         let doc = doc!(
             Self::field(SongField::Id) => self.id.clone() as u64,
@@ -151,9 +157,16 @@ impl Song {
 
     /// 单独获取字段(静态方法)
     pub fn field(song_field: SongField) -> Field {
-        SONG_SCHEMA.get_field(song_field.to_string()).unwrap()
+        match SONG_SCHEMA.get_field(song_field.to_string()) {
+            Ok(field) => field,
+            Err(error) => {
+                error!("获取 Field 失败\n[Cause]:{:?}", error);
+                exit(exitcode::DATAERR);
+            }
+        }
     }
 
+    /// 从文档类转换为实体类(反序列化)
     pub fn from_document(retrieved_doc: &Document) -> Result<Song, Error> {
         let schema = SONG_SCHEMA.clone();
         Ok(Song {

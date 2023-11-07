@@ -6,7 +6,7 @@ use crate::config::consts::PROFILE;
 use crate::db::database::MaimaiDB;
 use crate::db::entity::Song;
 
-pub struct DXProberClient {}
+pub struct DXProberClient;
 
 /// 用于查询歌曲
 impl DXProberClient {

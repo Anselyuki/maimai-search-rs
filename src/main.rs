@@ -28,18 +28,18 @@ fn main() {
         None => {
             if let Some(name) = args.name {
                 let songs = DXProberClient::search_songs_by_title(name.as_str(), args.count);
-                PrinterHandler::new(songs, args.detail, false, None, None);
+                PrinterHandler::console_handler(songs, args.detail, args.level);
             } else {
                 error_handler();
             }
         }
         // ID 检索子命令
-        Some(SubCommands::Id { ids, detail }) => {
+        Some(SubCommands::Id { ids, detail, level }) => {
             let songs = ids
                 .iter()
                 .flat_map(|id| DXProberClient::search_songs_by_id(*id))
                 .collect();
-            PrinterHandler::new(songs, detail, false, None, None);
+            PrinterHandler::console_handler(songs, detail, level);
         }
         // 更新数据库子命令
         Some(SubCommands::Update {}) => ResourceService::update_songs_data(),
@@ -59,28 +59,36 @@ fn main() {
             detail,
             output,
             add,
-        }) => match command {
-            None => {
-                if let Some(name) = name {
-                    let songs = DXProberClient::search_songs_by_title(name.as_str(), count);
-                    PrinterHandler::new(songs, detail, true, output, add);
-                } else {
-                    error_handler();
+            level,
+        }) => {
+            if output.is_some() && add.is_some() {
+                error!("add 参数和 output 参数不能同时使用");
+                exit(exitcode::USAGE)
+            }
+            match command {
+                None => {
+                    if let Some(name) = name {
+                        let songs = DXProberClient::search_songs_by_title(name.as_str(), count);
+                        PrinterHandler::file_handler(songs, detail, output, add, level);
+                    } else {
+                        error_handler();
+                    }
+                }
+                Some(MarkdownSubCommands::Id {
+                    ids,
+                    output,
+                    detail,
+                    add,
+                    level,
+                }) => {
+                    let songs = ids
+                        .iter()
+                        .flat_map(|id| DXProberClient::search_songs_by_id(*id))
+                        .collect();
+                    PrinterHandler::file_handler(songs, detail, output, add, level);
                 }
             }
-            Some(MarkdownSubCommands::Id {
-                ids,
-                output,
-                detail,
-                add,
-            }) => {
-                let songs = ids
-                    .iter()
-                    .flat_map(|id| DXProberClient::search_songs_by_id(*id))
-                    .collect();
-                PrinterHandler::new(songs, detail, true, output, add);
-            }
-        },
+        }
     }
 }
 

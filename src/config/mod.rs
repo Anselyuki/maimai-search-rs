@@ -40,15 +40,15 @@ pub mod command {
     pub struct MaimaiSearchArgs {
         /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
         pub name: Option<String>,
-        /// 谱面等级
-        #[arg(value_enum)]
-        pub level: Option<ChartLevel>,
         /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
         #[arg(short, long, default_value = "5")]
         pub count: usize,
         /// 开启详情查询
         #[arg(short, long)]
         pub detail: bool,
+        /// 谱面等级
+        #[arg(short, long, value_enum)]
+        pub level: Option<ChartLevel>,
 
         // 子命令枚举
         #[command(subcommand)]
@@ -56,7 +56,7 @@ pub mod command {
     }
 
     /// 谱面等级
-    #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+    #[derive(ValueEnum, Clone, Debug)]
     pub enum ChartLevel {
         BSC,
         ADV,
@@ -65,12 +65,27 @@ pub mod command {
         REM,
     }
 
+    impl ChartLevel {
+        pub fn get_index(&self) -> usize {
+            match self {
+                ChartLevel::BSC => 0,
+                ChartLevel::ADV => 1,
+                ChartLevel::EXP => 2,
+                ChartLevel::MST => 3,
+                ChartLevel::REM => 4,
+            }
+        }
+    }
+
     #[derive(Subcommand, Debug)]
     pub enum SubCommands {
         ///  使用 ID 进行检索，如：maimai-search id 11571 11524
         Id {
             /// 检索 ID ,支持多个 ID 检索
             ids: Vec<usize>,
+            /// 谱面等级
+            #[arg(short, long, value_enum)]
+            level: Option<ChartLevel>,
             /// 开启详情查询
             #[arg(short, long)]
             detail: bool,
@@ -93,6 +108,9 @@ pub mod command {
             /// 以追加方式添加到 markdown 文件中
             #[arg(short, long)]
             add: Option<String>,
+            /// 谱面等级
+            #[arg(short, long, value_enum)]
+            level: Option<ChartLevel>,
         },
         /// 更新谱面信息数据库
         Update {},
@@ -125,6 +143,9 @@ pub mod command {
             /// 以追加方式添加到 markdown 文件中
             #[arg(short, long)]
             add: Option<String>,
+            /// 谱面等级
+            #[arg(short, long, value_enum)]
+            level: Option<ChartLevel>,
         },
     }
 }

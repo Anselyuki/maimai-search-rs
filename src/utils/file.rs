@@ -7,7 +7,7 @@ use log::error;
 
 use crate::config::consts::LAUNCH_PATH;
 
-pub struct FileUtils {}
+pub struct FileUtils;
 
 impl FileUtils {
     /// 如果路径存在则创建

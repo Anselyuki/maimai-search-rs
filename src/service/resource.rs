@@ -15,7 +15,7 @@ use crate::config::consts::{CONFIG_PATH, PROFILE};
 use crate::db::database::MaimaiDB;
 use crate::service::client::DXProberClient;
 
-pub struct ResourceService {}
+pub struct ResourceService;
 
 impl ResourceService {
     /// 更新谱面信息和下载静态文件

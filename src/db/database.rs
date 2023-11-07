@@ -14,7 +14,7 @@ use crate::db::entity::{Song, SongField};
 use crate::utils::file::FileUtils;
 
 /// 新版本使用 Tantivy 作为数据源
-pub struct MaimaiDB {}
+pub struct MaimaiDB;
 
 impl MaimaiDB {
     /// 获取写入器
@@ -39,9 +39,19 @@ impl MaimaiDB {
         }
     }
 
-    /// 打开或创建索引
+    /// # 打开或创建索引
     ///
-    /// 解耦合主要是为了方便之后重建索引的步骤
+    /// > 解耦合主要是为了方便之后重建索引的步骤
+    ///
+    /// 这个方法返回的索引注册了 Jieba 分词器
+    ///
+    /// ```rust
+    /// let tokenizerManager = index.tokenizers();
+    /// let tokenizer = tokenizerManager.get("jieba");
+    /// ```
+    ///
+    /// 可以使用如上的方式获取注册的 tokenizer
+    ///
     fn get_index() -> Index {
         let tokenizer = tantivy_jieba::JiebaTokenizer {};
         let index_path = &CONFIG_PATH.join("data");
@@ -131,7 +141,7 @@ impl MaimaiDB {
         let searcher = Self::get_searcher(&index);
         let mut query_parser =
             QueryParser::for_index(&index, vec![Song::field(SongField::Keyword)]);
-        query_parser.set_field_fuzzy(Song::field(SongField::Keyword), false, 1, true);
+        query_parser.set_field_fuzzy(Song::field(SongField::Keyword), false, 0, true);
 
         // 舞萌里一大堆繁体中文,优先查一下繁体
         let mut top_docs: Vec<(Score, DocAddress)> = Self::search_song(
