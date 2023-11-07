@@ -76,7 +76,7 @@ impl TableService {
             .unwrap_or(0);
 
         if let Some(chart_level) = level.clone() {
-            let cell=&DIFFICULT_NAME[chart_level.get_index()];
+            let cell = &DIFFICULT_NAME[chart_level.get_index()];
             header.add_cell(cell.clone());
         } else {
             for difficult in &DIFFICULT_NAME[..chart_count] {

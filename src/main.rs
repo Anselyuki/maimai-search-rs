@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate clap;
 
 use std::process::exit;

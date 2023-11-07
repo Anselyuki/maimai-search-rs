@@ -12,8 +12,8 @@ pub mod consts {
     use prettytable::{Attr, Cell};
     use tantivy::schema::Schema;
 
-    use crate::db::entity::Song;
     use crate::config::profiles::Profile;
+    use crate::db::entity::Song;
 
     lazy_static! {
         // 在 MacOS下遵守 XDG 规范,即创建的配置文件夹为 `~/.config/maimai-search`
