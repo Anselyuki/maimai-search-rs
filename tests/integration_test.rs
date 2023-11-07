@@ -15,7 +15,9 @@ use predicates::prelude::predicate;
 fn id_console() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.arg("id").arg("666");
-    cmd.assert().success().stdout(predicate::str::contains("デスパレイト"));
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("デスパレイト"));
     Ok(())
 }
 
@@ -30,6 +32,8 @@ fn id_console() -> Result<(), Box<dyn std::error::Error>> {
 fn name_console() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME"))?;
     cmd.arg("初音 消失");
-    cmd.assert().success().stdout(predicate::str::contains("初音ミクの消失"));
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("初音ミクの消失"));
     Ok(())
 }

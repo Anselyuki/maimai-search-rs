@@ -4,7 +4,8 @@ use std::process::exit;
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{error, info};
 use tantivy::collector::TopDocs;
-use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, Query, QueryParser};
+use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, Query, QueryParser, TermQuery};
+use tantivy::schema::IndexRecordOption;
 use tantivy::{DocAddress, Index, IndexWriter, Score, Searcher, Term};
 use zhconv::{zhconv, Variant};
 
@@ -104,32 +105,22 @@ impl MaimaiDB {
 
     /// 按照传入的 ID 查询歌曲,精确查询
     pub fn search_song_by_id(id: usize) -> Option<Song> {
-        let index = Self::get_index();
-        let searcher = Self::get_searcher(&index);
-        let query_parser = QueryParser::for_index(&index, vec![Song::field(SongField::Id)]);
-        let query = query_parser.parse_query(id.to_string().as_str()).unwrap();
-
-        let top_docs = match searcher.search(&query, &TopDocs::with_limit(1)) {
-            Ok(top_docs) => top_docs,
+        let searcher = Self::get_searcher(&Self::get_index());
+        let query = TermQuery::new(
+            Term::from_field_u64(Song::field(SongField::Id), id as u64),
+            IndexRecordOption::Basic,
+        );
+        match searcher.search(&query, &TopDocs::with_limit(1)) {
+            Ok(top_docs) => top_docs
+                .into_iter()
+                .map(|(_, doc)| searcher.doc(doc).unwrap())
+                .map(|doc| Song::from_document(&doc).unwrap())
+                .next(),
             Err(error) => {
                 error!("查询歌曲[{}]时出现错误\n[Cause]:{:?}", id, error);
                 exit(exitcode::DATAERR)
             }
-        };
-
-        // ID 是唯一的,所以只会有一个结果
-        return match top_docs.len() {
-            1 => Some(
-                match Song::from_document(&searcher.doc(top_docs[0].1).unwrap()) {
-                    Ok(song) => song,
-                    Err(error) => {
-                        error!("反序列化错误\n[Cause]:{:?}", error);
-                        exit(exitcode::IOERR)
-                    }
-                },
-            ),
-            _ => None,
-        };
+        }
     }
 
     /// 按照 Keyword 字段模糊查询歌曲
@@ -154,8 +145,8 @@ impl MaimaiDB {
             top_docs = Self::search_song(param, count, &query_parser, &index);
         }
         return top_docs
-            .iter()
-            .map(|(_, doc)| searcher.doc(*doc).unwrap())
+            .into_iter()
+            .map(|(_, doc)| searcher.doc(doc).unwrap())
             .filter_map(|doc| Song::from_document(&doc).ok())
             .collect::<Vec<Song>>();
     }

@@ -7,9 +7,9 @@ pub mod consts {
 
     use lazy_static::lazy_static;
     use platform_dirs::AppDirs;
-    use prettytable::{Attr, Cell};
     use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
     use prettytable::format::*;
+    use prettytable::{Attr, Cell};
     use tantivy::schema::Schema;
 
     use crate::db::entity::Song;
