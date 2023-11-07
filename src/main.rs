@@ -5,18 +5,12 @@ use std::process::exit;
 
 use clap::Parser;
 use log::error;
-
-use crate::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
-use crate::config::profiles::Profile;
-use crate::service::client::DXProberClient;
-use crate::service::resource::ResourceService;
-use crate::utils::printer::PrinterHandler;
-use crate::utils::simple_log;
-
-pub mod config;
-pub mod db;
-pub mod service;
-pub mod utils;
+use maimai_search_lib::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
+use maimai_search_lib::config::profiles::Profile;
+use maimai_search_lib::service::client::DXProberClient;
+use maimai_search_lib::service::resource::ResourceService;
+use maimai_search_lib::utils::printer::PrinterHandler;
+use maimai_search_lib::utils::simple_log;
 
 fn main() {
     simple_log::init().unwrap();

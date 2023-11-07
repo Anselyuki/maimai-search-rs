@@ -1,3 +1,7 @@
+[lib]
+name = "maimai_search_lib"
+path = "src/lib.rs"
+
 [package]
 authors = ["AnselYuki"]
 name = "maimai-search"

@@ -13,7 +13,7 @@ pub mod consts {
     use tantivy::schema::Schema;
 
     use crate::db::entity::Song;
-    use crate::Profile;
+    use crate::config::profiles::Profile;
 
     lazy_static! {
         // 在 MacOS下遵守 XDG 规范,即创建的配置文件夹为 `~/.config/maimai-search`
@@ -33,6 +33,8 @@ pub mod consts {
 }
 
 pub mod command {
+    use clap::{Parser, Subcommand, ValueEnum};
+
     /// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
     #[derive(Parser, Debug)]
     #[command(name = "maimai-search", bin_name = "maimai-search")]
