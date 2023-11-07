@@ -2,10 +2,10 @@ use std::fmt::Debug;
 use std::io::Error;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tantivy::schema::{
-    Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, FAST, INDEXED, STORED,
-};
 use tantivy::{doc, Document};
+use tantivy::schema::{
+    FAST, Field, INDEXED, IndexRecordOption, Schema, STORED, TextFieldIndexing, TextOptions,
+};
 
 use crate::config::consts::SONG_SCHEMA;
 
@@ -34,8 +34,8 @@ pub struct Song {
 }
 
 fn serialize_usize_as_string<S>(id: &usize, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
+    where
+        S: Serializer,
 {
     serializer.serialize_str(&id.to_string())
 }
@@ -46,8 +46,8 @@ where
 ///
 /// 但是这个字段全部都是正整数类型,故在本地索引中,序列化歌曲 ID 为 usize
 fn deserialize_usize_from_string<'de, D>(deserializer: D) -> Result<usize, D::Error>
-where
-    D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
 {
     let id_str: String = Deserialize::deserialize(deserializer)?;
     id_str
@@ -86,6 +86,7 @@ pub struct BasicInfo {
 #[derive(PartialEq)]
 pub enum SongField {
     Id,
+    Keyword,
     Title,
     SongType,
     Ds,
@@ -99,6 +100,7 @@ impl SongField {
     pub fn to_string(&self) -> &str {
         match self {
             SongField::Id => "id",
+            SongField::Keyword => "keyword",
             SongField::Title => "title",
             SongField::SongType => "song_type",
             SongField::Ds => "ds",
@@ -120,7 +122,8 @@ impl Song {
             .set_tokenizer("jieba")
             .set_index_option(IndexRecordOption::WithFreqsAndPositions);
         let text_field = TextOptions::default().set_indexing_options(text_field_indexing);
-        schema_builder.add_text_field("title", text_field | STORED | FAST);
+        schema_builder.add_text_field("keyword", text_field | STORED | FAST);
+        schema_builder.add_text_field("title", STORED);
         // 其余的字段为存储字段,不被索引
         schema_builder.add_text_field("song_type", STORED);
         schema_builder.add_text_field("ds", STORED);
@@ -134,6 +137,7 @@ impl Song {
     pub fn document(&self) -> Result<Document, serde_json::Error> {
         let doc = doc!(
             Self::field(SongField::Id) => self.id.clone() as u64,
+            Self::field(SongField::Keyword) => &*self.title.to_lowercase(),
             Self::field(SongField::Title) => &*self.title,
             Self::field(SongField::SongType) => &*self.song_type,
             Self::field(SongField::Ds) => serde_json::to_string(&self.ds)?,
@@ -178,7 +182,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             level: serde_json::from_str::<Vec<String>>(
                 retrieved_doc
                     .get_first(schema.get_field("level").expect("获取字段失败"))
@@ -186,7 +190,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             cids: serde_json::from_str::<Vec<u32>>(
                 retrieved_doc
                     .get_first(schema.get_field("cids").expect("获取字段失败"))
@@ -194,7 +198,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             charts: serde_json::from_str::<Vec<Chart>>(
                 retrieved_doc
                     .get_first(schema.get_field("charts").expect("获取字段失败"))
@@ -202,7 +206,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
             basic_info: serde_json::from_str::<BasicInfo>(
                 retrieved_doc
                     .get_first(schema.get_field("basic_info").expect("获取字段失败"))
@@ -210,7 +214,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-            .expect("反序列化失败"),
+                .expect("反序列化失败"),
         })
     }
 }

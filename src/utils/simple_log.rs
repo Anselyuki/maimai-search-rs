@@ -8,7 +8,7 @@ struct SimpleLogger;
 
 impl log::Log for SimpleLogger {
     fn enabled(&self, metadata: &Metadata) -> bool {
-        metadata.level() <= Level::Info
+        return metadata.level() <= Level::Info && metadata.target().starts_with("maimai-search");
     }
     fn log(&self, record: &Record) {
         if self.enabled(record.metadata()) {

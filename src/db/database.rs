@@ -3,11 +3,10 @@ use std::process::exit;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{error, info};
+use tantivy::{DocAddress, Index, IndexWriter, Score, Searcher, Term};
 use tantivy::collector::TopDocs;
-use tantivy::query::QueryParser;
-use tantivy::tokenizer::{TokenStream, Tokenizer};
-use tantivy::{DocAddress, Index, IndexWriter, Score, Searcher};
-use zhconv::{zhconv, Variant};
+use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, Query, QueryParser};
+use zhconv::{Variant, zhconv};
 
 use crate::config::consts::{CONFIG_PATH, SONG_SCHEMA};
 use crate::db::entity::{Song, SongField};
@@ -137,8 +136,8 @@ impl MaimaiDB {
     /// 按照 title 字段模糊查询歌曲
     pub fn search_songs_by_title(param: &str, count: usize) -> Vec<Song> {
         let mut query_parser =
-            QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Title)]);
-        query_parser.set_field_fuzzy(Song::field(SongField::Title), false, 0, true);
+            QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Keyword)]);
+        query_parser.set_field_fuzzy(Song::field(SongField::Keyword), false, 0, true);
         let searcher = Self::get_searcher();
         // 舞萌里一大堆繁体中文,优先查一下繁体
         let mut top_docs = Self::search_song(
@@ -162,9 +161,19 @@ impl MaimaiDB {
         query_parser: &QueryParser,
     ) -> Vec<(Score, DocAddress)> {
         let searcher = Self::get_searcher();
-        let query = query_parser.parse_query(param).unwrap();
+        let query: (Occur, Box<dyn Query>) =
+            (Occur::Should, query_parser.parse_query(param).unwrap());
+        let fuzzy_query: (Occur, Box<dyn Query>) = (
+            Occur::Should,
+            Box::new(FuzzyTermQuery::new(
+                Term::from_field_text(Song::field(SongField::Title), param),
+                0,
+                true,
+            )),
+        );
+        let bool_query = BooleanQuery::from(vec![query, fuzzy_query]);
         let top_docs = searcher
-            .search(&query, &TopDocs::with_limit(count))
+            .search(&bool_query, &TopDocs::with_limit(count))
             .unwrap_or_else(|error| {
                 error!("查询歌曲[{}]时出现错误\n[Cause]:{:?}", param, error);
                 exit(exitcode::IOERR)

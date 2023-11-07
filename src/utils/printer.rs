@@ -121,8 +121,4 @@ impl MarkdownPrinter {
             error!("无法打开文件: {:?}", error);
         }
     }
-
-    fn addition_file() {
-        //TODO 追加模式写入md数据
-    }
 }
