@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::process::exit;
 use std::string::ToString;
@@ -28,9 +28,13 @@ impl PrinterHandler {
         add: Option<String>,
     ) {
         // 输出到文件的都添加图片列,输出到 Console 的根据配置文件决定
-        let pic_colum = match (output.clone(), PROFILE.markdown.picture.console_picture) {
-            (None, console_picture) => console_picture,
-            (Some(_), _) => true,
+        let pic_colum = match (
+            add.clone(),
+            output.clone(),
+            PROFILE.markdown.picture.console_picture,
+        ) {
+            (None, None, console_picture) => console_picture,
+            _ => true,
         };
 
         let table_vec = match detail {
@@ -41,7 +45,7 @@ impl PrinterHandler {
         if let Some(filename) = output {
             match markdown {
                 // 写入 md 文件
-                true => MarkdownPrinter::write_file(filename, table_vec),
+                true => MarkdownPrinter::write_markdown_file(filename, table_vec),
                 // 输出 md 格式的表格在命令行,提示
                 false => Self::markdown_rollback(markdown, table_vec),
             }
@@ -51,7 +55,7 @@ impl PrinterHandler {
         if let Some(filename) = add {
             match markdown {
                 // 写入 md 文件
-                true => MarkdownPrinter::write_file(filename, table_vec),
+                true => MarkdownPrinter::addition_file(filename, table_vec),
                 // 输出 md 格式的表格在命令行,提示
                 false => Self::markdown_rollback(markdown, table_vec),
             }
@@ -59,7 +63,6 @@ impl PrinterHandler {
         }
         ConsolePrinter::print_std(table_vec, markdown);
     }
-
     fn markdown_rollback(markdown: bool, table_vec: Vec<SongTable>) {
         warn!("未指定 markdown 输出! 使用 --markdown(-md) 开启 markdown 输出");
         ConsolePrinter::print_std(table_vec, markdown)
@@ -89,22 +92,46 @@ impl ConsolePrinter {
 
 impl MarkdownPrinter {
     /// 新建文件(覆盖式)
-    fn write_file(filename: String, song_tables: Vec<SongTable>) {
+    fn write_markdown_file(filename: String, song_tables: Vec<SongTable>) {
         let path = FileUtils::add_md_extension(filename);
-        let version = env!("CARGO_PKG_VERSION");
-        let name = env!("CARGO_PKG_NAME");
-        let repo = env!("CARGO_PKG_REPOSITORY");
-        let info_str = format!(
-            "> create by maimai-search {}\n>\n> GitHub Repository : [{}]({})\n",
-            version, name, repo
-        );
-        // 打开文件并写入yaml字符串
+        // 创建文件,文件不存在会创建文件
         let mut file = match File::create(&path) {
             Ok(file) => file,
             Err(e) => panic!("Error creating file: {:?}", e),
         };
 
+        let info_str = format!(
+            "> create by maimai-search {}\n>\n> GitHub Repository : [{}]({})\n",
+            env!("CARGO_PKG_VERSION"),
+            env!("CARGO_PKG_NAME"),
+            env!("CARGO_PKG_REPOSITORY")
+        );
         writeln!(file, "{}", info_str).unwrap();
+        Self::write_file(song_tables, &mut file, true);
+
+        info!("文件成功写入:[{}]", path.display());
+        if let Err(error) = open::that(path) {
+            error!("无法打开文件: {:?}", error);
+        }
+    }
+
+    /// 在指定的 markdown 文件中追加内容
+    pub fn addition_file(filename: String, song_tables: Vec<SongTable>) {
+        let path = FileUtils::add_md_extension(filename);
+        // 创建文件,文件不存在会创建文件
+        let mut file = match OpenOptions::new().append(true).open(&path) {
+            Ok(file) => file,
+            Err(e) => panic!("Error Open file: {:?}", e),
+        };
+        Self::write_file(song_tables, &mut file, false);
+        info!("文件成功写入:[{}]", &path.display());
+        if let Err(error) = open::that(&path) {
+            error!("无法打开文件: {:?}", error);
+        }
+    }
+
+    /// 向文件内写入内容,写入模式由传入的文件决定
+    fn write_file(song_tables: Vec<SongTable>, file: &mut File, has_title: bool) {
         for song_table in song_tables {
             let mut table = song_table.table;
             let heading = match song_table.heading_level {
@@ -113,12 +140,10 @@ impl MarkdownPrinter {
             };
             table.set_format(*MARKDOWN_TABLE_STYLE);
             let table_str = table.to_string();
-            writeln!(file, "{} {}\n", heading, song_table.info).unwrap();
+            if has_title {
+                writeln!(file, "{} {}\n", heading, song_table.info).unwrap();
+            }
             writeln!(file, "{}", table_str).unwrap();
-        }
-        info!("文件成功写入:[{}]", path.display());
-        if let Err(error) = open::that(path) {
-            error!("无法打开文件: {:?}", error);
         }
     }
 }

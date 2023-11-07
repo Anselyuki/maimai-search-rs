@@ -3,10 +3,10 @@ use std::process::exit;
 
 use indicatif::{ProgressBar, ProgressStyle};
 use log::{error, info};
-use tantivy::{DocAddress, Index, IndexWriter, Score, Searcher, Term};
 use tantivy::collector::TopDocs;
 use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, Query, QueryParser};
-use zhconv::{Variant, zhconv};
+use tantivy::{DocAddress, Index, IndexWriter, Score, Searcher, Term};
+use zhconv::{zhconv, Variant};
 
 use crate::config::consts::{CONFIG_PATH, SONG_SCHEMA};
 use crate::db::entity::{Song, SongField};
@@ -28,8 +28,7 @@ impl MaimaiDB {
         }
     }
 
-    pub fn get_searcher() -> Searcher {
-        let index = Self::get_index();
+    pub fn get_searcher(index: &Index) -> Searcher {
         match index.reader() {
             Ok(reader) => reader.searcher(),
             Err(error) => {
@@ -105,9 +104,9 @@ impl MaimaiDB {
 
     /// 按照传入的 ID 查询歌曲,精确查询
     pub fn search_song_by_id(id: usize) -> Option<Song> {
-        let searcher = Self::get_searcher();
-        let query_parser =
-            QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Id)]);
+        let index = Self::get_index();
+        let searcher = Self::get_searcher(&index);
+        let query_parser = QueryParser::for_index(&index, vec![Song::field(SongField::Id)]);
         let query = query_parser.parse_query(id.to_string().as_str()).unwrap();
 
         let top_docs = match searcher.search(&query, &TopDocs::with_limit(1)) {
@@ -133,20 +132,26 @@ impl MaimaiDB {
         };
     }
 
-    /// 按照 title 字段模糊查询歌曲
+    /// 按照 Keyword 字段模糊查询歌曲
+    ///
+    /// Keyword 字段为 title 字段的转小写模式
     pub fn search_songs_by_title(param: &str, count: usize) -> Vec<Song> {
+        let index = Self::get_index();
+        let searcher = Self::get_searcher(&index);
         let mut query_parser =
-            QueryParser::for_index(&Self::get_index(), vec![Song::field(SongField::Keyword)]);
-        query_parser.set_field_fuzzy(Song::field(SongField::Keyword), false, 0, true);
-        let searcher = Self::get_searcher();
+            QueryParser::for_index(&index, vec![Song::field(SongField::Keyword)]);
+        query_parser.set_field_fuzzy(Song::field(SongField::Keyword), false, 1, true);
+
         // 舞萌里一大堆繁体中文,优先查一下繁体
-        let mut top_docs = Self::search_song(
+        let mut top_docs: Vec<(Score, DocAddress)> = Self::search_song(
             format!("{}", zhconv(param, Variant::ZhHant)).as_str(),
             count,
             &query_parser,
+            &index,
         );
+        // 繁体没匹配到再去检查一下简中
         if top_docs.is_empty() {
-            top_docs = Self::search_song(param, count, &query_parser);
+            top_docs = Self::search_song(param, count, &query_parser, &index);
         }
         return top_docs
             .iter()
@@ -159,25 +164,24 @@ impl MaimaiDB {
         param: &str,
         count: usize,
         query_parser: &QueryParser,
+        index: &Index,
     ) -> Vec<(Score, DocAddress)> {
-        let searcher = Self::get_searcher();
         let query: (Occur, Box<dyn Query>) =
             (Occur::Should, query_parser.parse_query(param).unwrap());
         let fuzzy_query: (Occur, Box<dyn Query>) = (
             Occur::Should,
             Box::new(FuzzyTermQuery::new(
-                Term::from_field_text(Song::field(SongField::Title), param),
+                Term::from_field_text(Song::field(SongField::Keyword), param),
                 0,
                 true,
             )),
         );
         let bool_query = BooleanQuery::from(vec![query, fuzzy_query]);
-        let top_docs = searcher
+        return Self::get_searcher(index)
             .search(&bool_query, &TopDocs::with_limit(count))
             .unwrap_or_else(|error| {
                 error!("查询歌曲[{}]时出现错误\n[Cause]:{:?}", param, error);
-                exit(exitcode::IOERR)
+                exit(exitcode::DATAERR)
             });
-        top_docs
     }
 }

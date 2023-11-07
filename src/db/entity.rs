@@ -2,10 +2,10 @@ use std::fmt::Debug;
 use std::io::Error;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tantivy::{doc, Document};
 use tantivy::schema::{
-    FAST, Field, INDEXED, IndexRecordOption, Schema, STORED, TextFieldIndexing, TextOptions,
+    Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, FAST, INDEXED, STORED,
 };
+use tantivy::{doc, Document};
 
 use crate::config::consts::SONG_SCHEMA;
 
@@ -34,8 +34,8 @@ pub struct Song {
 }
 
 fn serialize_usize_as_string<S>(id: &usize, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
+where
+    S: Serializer,
 {
     serializer.serialize_str(&id.to_string())
 }
@@ -46,8 +46,8 @@ fn serialize_usize_as_string<S>(id: &usize, serializer: S) -> Result<S::Ok, S::E
 ///
 /// 但是这个字段全部都是正整数类型,故在本地索引中,序列化歌曲 ID 为 usize
 fn deserialize_usize_from_string<'de, D>(deserializer: D) -> Result<usize, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let id_str: String = Deserialize::deserialize(deserializer)?;
     id_str
@@ -182,7 +182,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-                .expect("反序列化失败"),
+            .expect("反序列化失败"),
             level: serde_json::from_str::<Vec<String>>(
                 retrieved_doc
                     .get_first(schema.get_field("level").expect("获取字段失败"))
@@ -190,7 +190,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-                .expect("反序列化失败"),
+            .expect("反序列化失败"),
             cids: serde_json::from_str::<Vec<u32>>(
                 retrieved_doc
                     .get_first(schema.get_field("cids").expect("获取字段失败"))
@@ -198,7 +198,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-                .expect("反序列化失败"),
+            .expect("反序列化失败"),
             charts: serde_json::from_str::<Vec<Chart>>(
                 retrieved_doc
                     .get_first(schema.get_field("charts").expect("获取字段失败"))
@@ -206,7 +206,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-                .expect("反序列化失败"),
+            .expect("反序列化失败"),
             basic_info: serde_json::from_str::<BasicInfo>(
                 retrieved_doc
                     .get_first(schema.get_field("basic_info").expect("获取字段失败"))
@@ -214,7 +214,7 @@ impl Song {
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
             )
-                .expect("反序列化失败"),
+            .expect("反序列化失败"),
         })
     }
 }
