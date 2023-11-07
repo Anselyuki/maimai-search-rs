@@ -58,8 +58,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
-          profile: default
-          override: true
+          profile: minimal
           target: ${{ matrix.target }}
 
       - name: Build binary

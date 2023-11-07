@@ -4,7 +4,7 @@ extern crate clap;
 use std::process::exit;
 
 use clap::Parser;
-use log::{error, info};
+use log::error;
 
 use crate::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use crate::config::profiles::Profile;
