@@ -1,10 +1,12 @@
-use crate::clients::user_data::entity::B50Response;
-use crate::config::consts::PROFILE;
+use std::error::Error;
+use std::process::exit;
+
 use log::error;
 use reqwest::blocking;
 use serde_json::json;
-use std::error::Error;
-use std::process::exit;
+
+use crate::clients::user_data::entity::B50Response;
+use crate::config::consts::PROFILE;
 
 /// 从远程服务器拿指定用户的 b50 数据
 pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
@@ -43,6 +45,8 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
 }
 
 pub mod entity {
+    use std::cmp::Ordering;
+
     use serde::{Deserialize, Serialize};
 
     /// 查分器返回的数据
@@ -66,25 +70,25 @@ pub mod entity {
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Charts {
-        dx: Vec<ChartInfo>,
-        sd: Vec<ChartInfo>,
+        dx: Vec<ChartInfoResponse>,
+        sd: Vec<ChartInfoResponse>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    pub struct ChartInfo {
+    pub struct ChartInfoResponse {
         /// 达成率
-        achievements: f32,
+        pub achievements: f32,
         /// 谱面定数
-        ds: f32,
+        pub ds: f32,
         /// DX 分数
         #[serde(rename = "dxScore")]
-        dx_score: i32,
+        pub dx_score: i32,
         /// FULL COMBO
-        fc: String,
+        pub fc: String,
         /// FULL SYNC
-        fs: String,
+        pub fs: String,
         /// 等级
-        level: String,
+        pub level: String,
         /// 标记是第几个难度的谱面(感觉跟下面的重复了)
         ///
         /// - `0`: Basic
@@ -92,20 +96,20 @@ pub mod entity {
         /// - `2`: Expert
         /// - `3`: Master
         /// - `4`: Re:Master
-        level_index: i32,
+        pub level_index: i32,
         /// 难度标签
-        level_label: LevelLabel,
+        pub level_label: LevelLabel,
         /// 难度分
-        ra: i32,
+        pub ra: i32,
         /// 等级
-        rate: ChartRate,
+        pub rate: ChartRate,
         /// 这里的 ID 跟 db 内的 ID 相关联的
-        song_id: i32,
+        pub song_id: i32,
         /// 歌曲标题
-        title: String,
+        pub title: String,
         /// 歌曲类型
         #[serde(rename = "type")]
-        song_type: String,
+        pub song_type: String,
     }
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -120,6 +124,7 @@ pub mod entity {
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     #[serde(rename_all = "lowercase")]
+    #[derive(PartialEq, PartialOrd)]
     pub enum ChartRate {
         D,
         C,
@@ -135,5 +140,25 @@ pub mod entity {
         SSP,
         SSS,
         SSSP,
+    }
+
+    impl PartialEq for ChartInfoResponse {
+        fn eq(&self, other: &Self) -> bool {
+            self.ra == other.ra
+        }
+    }
+
+    impl PartialOrd for ChartInfoResponse {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
+    impl Eq for ChartInfoResponse {}
+
+    impl Ord for ChartInfoResponse {
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.ra.cmp(&other.ra)
+        }
     }
 }
