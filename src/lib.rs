@@ -1,4 +1,6 @@
+pub mod clients;
 pub mod config;
-pub mod db;
+mod db;
+pub mod image;
 pub mod service;
 pub mod utils;

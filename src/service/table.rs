@@ -4,13 +4,13 @@ use std::fs::create_dir;
 use std::path::Path;
 use std::process::exit;
 
+use crate::clients::song_data::entity::Song;
 use log::{error, warn};
 use prettytable::{row, Cell, Row, Table};
 
 use crate::config::command::ChartLevel;
 use crate::config::consts::{CONFIG_PATH, DIFFICULT_NAME, LAUNCH_PATH, PROFILE};
-use crate::db::entity::Song;
-use crate::service::resource::ResourceService;
+use crate::service::resource::update_resource;
 use crate::utils::file::FileUtils;
 
 /// 歌曲列表
@@ -248,7 +248,7 @@ impl TableService {
         // 资源文件夹不存在,执行一次资源更新
         if !source_path.exists() {
             warn!("资源文件不存在,执行资源文件更新");
-            ResourceService::update_resource(false);
+            update_resource(false);
         }
 
         if let Err(error) = FileUtils::copy_file(source_path, res_dir.join(&filename)) {

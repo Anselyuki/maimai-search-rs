@@ -4,10 +4,11 @@ use std::process::exit;
 
 use clap::Parser;
 use log::error;
+
+use maimai_search_lib::clients::song_data;
 use maimai_search_lib::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use maimai_search_lib::config::profiles::Profile;
-use maimai_search_lib::service::client::DXProberClient;
-use maimai_search_lib::service::resource::ResourceService;
+use maimai_search_lib::service::resource;
 use maimai_search_lib::utils::printer::PrinterHandler;
 use maimai_search_lib::utils::simple_log;
 
@@ -20,7 +21,7 @@ fn main() {
         // 子命令为空时,表示使用主功能: 按照名称查询
         None => {
             if let Some(name) = args.name {
-                let songs = DXProberClient::search_songs_by_title(name.as_str(), args.count);
+                let songs = song_data::search_songs_by_title(name.as_str(), args.count);
                 PrinterHandler::console_handler(songs, args.detail, args.level);
             } else {
                 error_handler();
@@ -30,14 +31,14 @@ fn main() {
         Some(SubCommands::Id { ids, detail, level }) => {
             let songs = ids
                 .iter()
-                .flat_map(|id| DXProberClient::search_songs_by_id(*id))
+                .flat_map(|id| song_data::search_songs_by_id(*id))
                 .collect();
             PrinterHandler::console_handler(songs, detail, level);
         }
         // 更新数据库子命令
-        Some(SubCommands::Update {}) => ResourceService::update_songs_data(),
+        Some(SubCommands::Update {}) => resource::update_songs_data(),
         // 更新资源文件子命令
-        Some(SubCommands::Resource { force }) => ResourceService::update_resource(force),
+        Some(SubCommands::Resource { force }) => resource::update_resource(force),
         // 配置文件管理子命令
         Some(SubCommands::Config { default }) => {
             if default {
@@ -61,7 +62,7 @@ fn main() {
             match command {
                 None => {
                     if let Some(name) = name {
-                        let songs = DXProberClient::search_songs_by_title(name.as_str(), count);
+                        let songs = song_data::search_songs_by_title(name.as_str(), count);
                         PrinterHandler::file_handler(songs, detail, output, add, level);
                     } else {
                         error_handler();
@@ -76,7 +77,7 @@ fn main() {
                 }) => {
                     let songs = ids
                         .iter()
-                        .flat_map(|id| DXProberClient::search_songs_by_id(*id))
+                        .flat_map(|id| song_data::search_songs_by_id(*id))
                         .collect();
                     PrinterHandler::file_handler(songs, detail, output, add, level);
                 }

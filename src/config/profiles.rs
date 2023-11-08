@@ -9,41 +9,48 @@ use serde::{Deserialize, Serialize};
 use crate::config::consts::CONFIG_PATH;
 
 /// 配置文件解析结果
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Profile {
     pub remote_api: RemoteAPIConfig,
     pub markdown: MarkdownConfig,
 }
 
 /// 远程配置
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RemoteAPIConfig {
     pub json_url: String,
     pub resource_url: String,
+    pub maimaidxprober: MaimaiDXProberConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MaimaiDXProberConfig {
+    pub data_url: String,
+    pub username: Option<String>,
 }
 
 /// markdown 配置
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MarkdownConfig {
     pub picture: PictureConfig,
 }
 
 /// 远程配置
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PictureConfig {
     pub local: LocalPictureConfig,
     pub remote: RemotePictureConfig,
     pub console_picture: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalPictureConfig {
     pub enable: bool,
     pub path: Option<String>,
     pub absolute: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RemotePictureConfig {
     pub prefix_url: String,
 }
@@ -113,6 +120,11 @@ impl Profile {
             remote_api: RemoteAPIConfig {
                 json_url: "https://www.diving-fish.com/api/maimaidxprober/music_data".to_string(),
                 resource_url: "https://www.diving-fish.com/maibot/static.zip".to_string(),
+                maimaidxprober: MaimaiDXProberConfig {
+                    data_url: "https://www.diving-fish.com/api/maimaidxprober/query/player"
+                        .to_string(),
+                    username: None,
+                },
             },
             markdown: MarkdownConfig {
                 picture: PictureConfig {

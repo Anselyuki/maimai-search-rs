@@ -4,12 +4,12 @@ use std::process::exit;
 use std::string::ToString;
 use std::vec::Vec;
 
+use crate::clients::song_data::entity::Song;
 use log::{error, info};
 use prettytable::format::consts::FORMAT_BOX_CHARS;
 
 use crate::config::command::ChartLevel;
 use crate::config::consts::{MARKDOWN_TABLE_STYLE, PROFILE};
-use crate::db::entity::Song;
 use crate::service::table::{SongTable, TableService};
 use crate::utils::file::FileUtils;
 
