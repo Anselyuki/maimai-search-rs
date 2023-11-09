@@ -244,7 +244,7 @@ impl TableService {
         };
 
         let filename = format!("{:0>5}.png", &song.id);
-        let source_path = CONFIG_PATH.join("resource").join(&filename);
+        let source_path = CONFIG_PATH.join("resource/mai/cover").join(&filename);
         // 资源文件夹不存在,执行一次资源更新
         if !source_path.exists() {
             warn!("资源文件不存在,执行资源文件更新");

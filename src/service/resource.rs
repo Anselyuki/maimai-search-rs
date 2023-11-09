@@ -1,17 +1,17 @@
 use std::cmp::min;
 use std::fs;
-use std::fs::File;
+use std::fs::{create_dir, File};
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::exit;
 
-use crate::clients::song_data::get_song_metadata;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use log::{error, info, warn};
 use reqwest::blocking::Response;
 use zip::ZipArchive;
 
+use crate::clients::song_data::get_song_metadata;
 use crate::config::consts::{CONFIG_PATH, PROFILE};
 use crate::db::database::MaimaiDB;
 
@@ -108,11 +108,13 @@ fn check_file(resource_zip: &PathBuf, force: bool, response: Response) {
 fn extract_zip_archive(zip: &mut ZipArchive<File>, resource_path: PathBuf) {
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).unwrap();
-        // 只需要 mai/cover 文件夹下的谱面资源文件
-        if !file.is_dir() && file.name().starts_with("mai/cover/") {
-            let file_name = file.name();
+
+        if file.is_dir() {
+            let path = resource_path.join(Path::new(&file.name()));
+            create_dir(path).expect("TODO: panic message");
+        } else {
             // 控制过滤文件夹,并将该路径截断,仅保留文件名
-            let file_path = resource_path.join(Path::new(&file_name["mai/cover/".len()..]));
+            let file_path = resource_path.join(Path::new(&file.name()));
             let mut target_file = match file_path.exists() {
                 true => File::open(file_path).unwrap(),
                 false => File::create(file_path).unwrap(),

@@ -46,6 +46,7 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
 
 pub mod entity {
     use std::cmp::Ordering;
+    use std::fmt::Display;
 
     use serde::{Deserialize, Serialize};
 
@@ -70,8 +71,8 @@ pub mod entity {
 
     #[derive(Debug, Serialize, Deserialize)]
     pub struct Charts {
-        dx: Vec<ChartInfoResponse>,
-        sd: Vec<ChartInfoResponse>,
+        pub dx: Vec<ChartInfoResponse>,
+        pub sd: Vec<ChartInfoResponse>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -122,6 +123,19 @@ pub mod entity {
         ReMaster,
     }
 
+    impl Display for LevelLabel {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let level_str = match self {
+                LevelLabel::Basic => "BASIC",
+                LevelLabel::Advanced => "ADVANCED",
+                LevelLabel::Expert => "EXPERT",
+                LevelLabel::Master => "MASTER",
+                LevelLabel::ReMaster => "Re:MASTER",
+            };
+            write!(f, "{}", level_str)
+        }
+    }
+
     #[derive(Clone, Debug, Serialize, Deserialize)]
     #[serde(rename_all = "lowercase")]
     #[derive(PartialEq, PartialOrd)]
@@ -142,6 +156,28 @@ pub mod entity {
         SSSP,
     }
 
+    impl Display for ChartRate {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let rate_str = match self {
+                ChartRate::D => "D",
+                ChartRate::C => "C",
+                ChartRate::B => "B",
+                ChartRate::BB => "BB",
+                ChartRate::BBB => "BBB",
+                ChartRate::A => "A",
+                ChartRate::AA => "AA",
+                ChartRate::AAA => "AAA",
+                ChartRate::S => "S",
+                ChartRate::SP => "S+",
+                ChartRate::SS => "SS",
+                ChartRate::SSP => "SS+",
+                ChartRate::SSS => "SSS",
+                ChartRate::SSSP => "SSS+",
+            };
+            write!(f, "{}", rate_str)
+        }
+    }
+
     impl PartialEq for ChartInfoResponse {
         fn eq(&self, other: &Self) -> bool {
             self.ra == other.ra
@@ -159,6 +195,21 @@ pub mod entity {
     impl Ord for ChartInfoResponse {
         fn cmp(&self, other: &Self) -> Ordering {
             self.ra.cmp(&other.ra)
+        }
+    }
+
+    impl Display for ChartInfoResponse {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "[{} {}][{}] {}\n",
+                self.level_label, self.level, self.song_type, self.title,
+            )?;
+            write!(
+                f,
+                "[{}][{}] Achievements: {:.4}%, DS: {:.1}, RA: {}, Rate: {} ",
+                self.fc, self.fs, self.achievements, self.ds, self.ra, self.rate,
+            )
         }
     }
 }

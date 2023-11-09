@@ -1,6 +1,55 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
+
 use crate::clients::user_data::entity::ChartInfoResponse;
-use std::cmp;
-use std::fmt::Display;
+use crate::config::consts::CONFIG_PATH;
+use crate::image::utils::{compute_ra, get_ra_pic, string_to_half_width};
+
+static WIDTHS: [(u32, i32); 38] = [
+    (126, 1),
+    (159, 0),
+    (687, 1),
+    (710, 0),
+    (711, 1),
+    (727, 0),
+    (733, 1),
+    (879, 0),
+    (1154, 1),
+    (1161, 0),
+    (4347, 1),
+    (4447, 2),
+    (7467, 1),
+    (7521, 0),
+    (8369, 1),
+    (8426, 0),
+    (9000, 1),
+    (9002, 2),
+    (11021, 1),
+    (12350, 2),
+    (12351, 1),
+    (12438, 2),
+    (12442, 0),
+    (19893, 2),
+    (19967, 1),
+    (55203, 2),
+    (63743, 1),
+    (64106, 2),
+    (65039, 1),
+    (65059, 0),
+    (65131, 2),
+    (65279, 1),
+    (65376, 2),
+    (65500, 1),
+    (65510, 2),
+    (120831, 1),
+    (262141, 2),
+    (1114109, 1),
+];
+
+static COLUMNS_IMG: [i32; 12] = [2, 140, 278, 416, 554, 692, 830, 968, 988, 1126, 1264, 1402];
+static ROWS_IMG: [i32; 6] = [116, 212, 308, 404, 500, 596];
+
+static COLUMNS_RATING: [i32; 5] = [86, 100, 115, 130, 145];
 
 /// # 自排序 Best 列表
 ///
@@ -63,129 +112,226 @@ impl std::ops::Index<usize> for BestList {
     }
 }
 
-struct ChartInfo {
-    idNum: String,
-    diff: i32,
-    tp: String,
-    achievement: f32,
-    ra: i32,
-    comboId: i32,
-    scoreId: i32,
-    title: String,
-    ds: f32,
-    lv: String,
+/// # 绘图库实现类
+///
+/// 这里面有一个或者多个函数要用 pyo3 进行调用
+#[derive(Debug)]
+pub struct DrawBest {
+    /// B35 列表
+    sd_best: BestList,
+    /// B15 列表
+    dx_best: BestList,
+    /// 用户名(maimai DX)
+    username: String,
+    /// 标准谱面 Rating
+    sd_rating: i32,
+    /// DX 谱面 Rating
+    dx_rating: i32,
+    /// 用户 Rating(SD + DX)
+    player_rating: i32,
+    /// 图片目录
+    pic_dir: PathBuf,
+    /// 封面目录
+    cover_dir: PathBuf,
+    /// 这个类在 Python 脚本里是 PIL 的 Image 类,初始化的原代码是这样的
+    ///
+    /// ```python
+    /// self.img = Image.open(self.pic_dir + 'UI_TTR_BG_Base_Plus.png').convert('RGBA')
+    /// ```
+    ///
+    /// 通过 FFI 传入这个 Path 字段估计与下例类似
+    ///
+    /// ```python
+    /// Image.open(image_path).convert('RGBA')
+    /// ```
+    ///
+    /// 具体如何实现可以 @AnselYuki 商量
+    img_path: PathBuf,
 }
 
-impl ChartInfo {
-    fn new(
-        idNum: String,
-        diff: i32,
-        tp: String,
-        achievement: f32,
-        ds: f32,
-        comboId: i32,
-        scoreId: i32,
-        title: String,
-        lv: String,
-    ) -> ChartInfo {
-        let ra = compute_ra(ds, achievement); // assume compute_ra is implemented elsewhere
-        ChartInfo {
-            idNum,
-            diff,
-            tp,
-            achievement,
-            ra,
-            comboId,
-            scoreId,
-            title,
-            ds,
-            lv,
+impl DrawBest {
+    /// 初始化绘图类
+    ///
+    /// 对应 Python 脚本里的 `__init__` 函数
+    pub fn new(sd_best: BestList, dx_best: BestList, username: &str) -> Self {
+        // 计算标准谱面的 Rating
+        let sd_rating: i32 = sd_best
+            .data
+            .iter()
+            .map(|sd| compute_ra(sd.ds, sd.achievements))
+            .sum();
+        // 计算 DX 谱面的 Rating
+        let dx_rating: i32 = dx_best
+            .data
+            .iter()
+            .map(|sd| compute_ra(sd.ds, sd.achievements))
+            .sum();
+
+        DrawBest {
+            sd_best,
+            dx_best,
+            username: string_to_half_width(username),
+            sd_rating,
+            dx_rating,
+            player_rating: sd_rating + dx_rating,
+            pic_dir: CONFIG_PATH.join("resource").join("mai").join("pic"),
+            cover_dir: CONFIG_PATH.join("resource").join("mai").join("cover"),
+            img_path: CONFIG_PATH
+                .join("resource")
+                .join("mai")
+                .join("pic")
+                .join("UI_TTR_BG_Base_Plus.png"),
         }
     }
 
-    fn from_json(data: ChartInfoResponse) -> ChartInfo {
-        let rate = vec![
-            "d", "c", "b", "bb", "bbb", "a", "aa", "aaa", "s", "sp", "ss", "ssp", "sss", "sssp",
-        ];
-        let ri = rate
-            .iter()
-            .position(|&r| r == data["rate"].as_str().unwrap())
-            .unwrap();
-        let fc = vec!["", "fc", "fcp", "ap", "app"];
-        let fi = fc
-            .iter()
-            .position(|&f| f == data["fc"].as_str().unwrap())
-            .unwrap();
-        ChartInfo::new(
-            "".to_string(),
-            0,
-            "".to_string(),
-            0.0,
-            0.0,
-            0,
-            0,
-            "".to_string(),
-            "".to_string(),
-        )
-    }
-}
-
-impl Display for ChartInfo {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let diffs = ["Beginner", "Easy", "Medium", "Hard", "Challenge"];
-        write!(
-            fmt,
-            "{:<50}{}\t{}\t{}",
-            format!("{} [{}]", self.title, self.tp),
-            self.ds,
-            diffs[self.diff as usize],
-            self.ra
-        )
-    }
-}
-
-impl PartialEq for ChartInfo {
-    fn eq(&self, other: &Self) -> bool {
-        self.ra == other.ra
-    }
-}
-
-impl PartialOrd for ChartInfo {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.ra.cmp(&other.ra))
-    }
-}
-
-fn compute_ra(ds: f32, achievement: f32) -> i32 {
-    let mut base_ra = 22.4;
-    if achievement < 50.0 {
-        base_ra = 7.0;
-    } else if achievement < 60.0 {
-        base_ra = 8.0;
-    } else if achievement < 70.0 {
-        base_ra = 9.6;
-    } else if achievement < 75.0 {
-        base_ra = 11.2;
-    } else if achievement < 80.0 {
-        base_ra = 12.0;
-    } else if achievement < 90.0 {
-        base_ra = 13.6;
-    } else if achievement < 94.0 {
-        base_ra = 15.2;
-    } else if achievement < 97.0 {
-        base_ra = 16.8;
-    } else if achievement < 98.0 {
-        base_ra = 20.0;
-    } else if achievement < 99.0 {
-        base_ra = 20.3;
-    } else if achievement < 99.5 {
-        base_ra = 20.8;
-    } else if achievement < 100.0 {
-        base_ra = 21.1;
-    } else if achievement < 100.5 {
-        base_ra = 21.6;
+    /// 对应 Python 脚本里的 `_getCharWidth` 函数
+    fn get_char_width(&self, o: u32) -> i32 {
+        match o {
+            _ => {}
+        }
+        if o == 0xe || o == 0xf {
+            return 0;
+        }
+        for &(num, wid) in WIDTHS.iter() {
+            if o <= num {
+                return wid;
+            }
+        }
+        return 1;
     }
 
-    let min_achievement = cmp::min(achievement, 100.5);
-    return (ds * (min_achievement / 100.0) * base_ra).floor() as i32;
+    /// 对应 Python 脚本里的 `_columnWidth` 函数(这函数是不是打错字了)
+    fn column_width(&self, s: &str) -> i32 {
+        s.chars().map(|ch| self.get_char_width(ch as u32)).sum()
+    }
+
+    /// 对应 Python 脚本里的 `_changeColumnWidth` 函数,并进行了优化
+    ///
+    /// > 优化后的代码使用了一个哈希表来缓存 `get_char_width()` 方法的结果,这样可以避免在每个字符上重复调用该方法
+    fn change_column_width(&self, s: &str, len: i32) -> String {
+        let mut res = 0;
+        let mut char_list = Vec::new();
+        let mut char_width_cache = HashMap::new();
+
+        for ch in s.chars() {
+            res += *char_width_cache
+                .entry(ch)
+                .or_insert_with(|| self.get_char_width(ch as u32));
+            if res <= len {
+                char_list.push(ch);
+            } else {
+                break;
+            }
+        }
+
+        let mut output_str = String::with_capacity(char_list.len());
+        output_str.extend(char_list);
+        output_str
+    }
+
+    fn resize_pic() {
+        //TODO: _resizePic 方法,参数和返回值都是 Image,寄！
+    }
+
+    fn draw_rating(&self) {
+        let mut the_ra = self.player_rating;
+        for i in (0..4).rev() {
+            let digit = the_ra % 10;
+            the_ra /= 10;
+            let image_path = self.pic_dir.join(format!("UI_NUM_Drating_{}.png", digit));
+            // TODO 这几个方法都是 PIL 实现,需要 Pyo3 调用,其中这个 Image.open() 的参数构建在上面了
+            // digitImg = Image.open(...).convert('RGBA');
+            // digitImg = self._resizePic(digitImg, 0.6)
+            // ratingBaseImg.paste(digitImg, (COLOUMS_RATING[i] - 2, 9), mask=digitImg.split()[3])
+            print!("[i:{}]:{}", i, image_path.as_path().display());
+        }
+    }
+
+    ///TODO: 代码最多的一集.jpg
+    fn draw_best_list() {}
+
+    pub fn draw(&self) {
+        let splash_logo_path = self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png");
+        dbg!(&splash_logo_path);
+        assert!(splash_logo_path.exists());
+        //splashLogo = Image.open(self.pic_dir + 'UI_CMN_TabTitle_MaimaiTitle_Ver214.png').convert('RGBA')
+        //splashLogo = self._resizePic(splashLogo, 0.65)
+        //splashLogo = self._resizePic(splashLogo, 0.65)
+        //self.img.paste(splashLogo, (10, 10), mask=splashLogo.split()[3])
+
+        let rating_base_img_path = self.pic_dir.join(get_ra_pic(self.player_rating as u32));
+        dbg!(&rating_base_img_path);
+        assert!(rating_base_img_path.exists());
+        //ratingBaseImg = Image.open(self.pic_dir + self._findRaPic()).convert('RGBA')
+        //ratingBaseImg = self._drawRating(ratingBaseImg)
+        //ratingBaseImg = self._resizePic(ratingBaseImg, 0.85)
+        //self.img.paste(ratingBaseImg, (240, 8), mask=ratingBaseImg.split()[3])
+
+        let name_plate_img_path = self.pic_dir.join("UI_TST_PlateMask.png");
+        dbg!(&name_plate_img_path);
+        assert!(name_plate_img_path.exists());
+        //namePlateImg = Image.open(self.pic_dir + 'UI_TST_PlateMask.png').convert('RGBA')
+        //namePlateImg = namePlateImg.resize((285, 40))
+        //namePlateDraw = ImageDraw.Draw(namePlateImg)
+        //font1 = ImageFont.truetype('src/static/msyh.ttc', 28, encoding='unic')
+        //namePlateDraw.text((12, 4), ' '.join(list(self.userName)), 'black', font1)
+
+        let name_dx_img_path = self.pic_dir.join("UI_CMN_Name_DX.png");
+        dbg!(&name_dx_img_path);
+        assert!(name_dx_img_path.exists());
+        //nameDxImg = Image.open(self.pic_dir + 'UI_CMN_Name_DX.png').convert('RGBA')
+        //nameDxImg = self._resizePic(nameDxImg, 0.9)
+        //namePlateImg.paste(nameDxImg, (230, 4), mask=nameDxImg.split()[3])
+        //self.img.paste(namePlateImg, (240, 40), mask=namePlateImg.split()[3])
+
+        let shougou_img_path = self.pic_dir.join("UI_CMN_Shougou_Rainbow.png");
+        dbg!(&shougou_img_path);
+        assert!(shougou_img_path.exists());
+        //shougouImg = Image.open(self.pic_dir + 'UI_CMN_Shougou_Rainbow.png').convert('RGBA')
+        //shougouDraw = ImageDraw.Draw(shougouImg)
+        //font2 = ImageFont.truetype('src/static/adobe_simhei.otf', 14, encoding='utf-8')
+
+        let play_count_info = format!(
+            "SD: {} + DX: {} = {}",
+            self.sd_rating, self.dx_rating, self.player_rating
+        );
+        dbg!(&play_count_info);
+        //shougouImgW, shougouImgH = shougouImg.size
+        //playCountInfoW, playCountInfoH = shougouDraw.textsize(playCountInfo, font2)
+        //textPos = ((shougouImgW - playCountInfoW - font2.getoffset(playCountInfo)[0]) / 2, 5)
+        //shougouDraw.text((textPos[0] - 1, textPos[1]), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0] + 1, textPos[1]), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0], textPos[1] - 1), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0], textPos[1] + 1), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0] - 1, textPos[1] - 1), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0] + 1, textPos[1] - 1), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0] - 1, textPos[1] + 1), playCountInfo, 'black', font2)
+        //shougouDraw.text((textPos[0] + 1, textPos[1] + 1), playCountInfo, 'black', font2)
+        //shougouDraw.text(textPos, playCountInfo, 'white', font2)
+        //shougouImg = self._resizePic(shougouImg, 1.05)
+        //self.img.paste(shougouImg, (240, 83), mask=shougouImg.split()[3])
+
+        //self._drawBestList(self.img, self.sdBest, self.dxBest)
+
+        let author_board_img_path = self.pic_dir.join("UI_CMN_MiniDialog_01.png");
+        dbg!(&author_board_img_path);
+        assert!(author_board_img_path.exists());
+        //authorBoardImg = Image.open(self.pic_dir + 'UI_CMN_MiniDialog_01.png').convert('RGBA')
+        //authorBoardImg = self._resizePic(authorBoardImg, 0.35)
+        //authorBoardDraw = ImageDraw.Draw(authorBoardImg)
+        //authorBoardDraw.text((31, 28), '   Generated By\nXybBot & AnselYuki', 'black', font2)
+        //self.img.paste(authorBoardImg, (1224, 19), mask=authorBoardImg.split()[3])
+
+        let dx_img_path = self.pic_dir.join("UI_RSL_MBase_Parts_01.png");
+        dbg!(&dx_img_path);
+        assert!(dx_img_path.exists());
+        //dxImg = Image.open(self.pic_dir + 'UI_RSL_MBase_Parts_01.png').convert('RGBA')
+        //self.img.paste(dxImg, (988, 65), mask=dxImg.split()[3])
+
+        let sd_img_path = self.pic_dir.join("UI_RSL_MBase_Parts_02.png");
+        dbg!(&sd_img_path);
+        assert!(sd_img_path.exists());
+        //sdImg = Image.open(self.pic_dir + 'UI_RSL_MBase_Parts_02.png').convert('RGBA')
+        //self.img.paste(sdImg, (865, 65), mask=sdImg.split()[3])
+    }
 }
