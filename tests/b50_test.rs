@@ -1,5 +1,3 @@
-use pyo3::{IntoPy, PyResult, Python};
-
 use maimai_search_lib::clients::user_data;
 use maimai_search_lib::config::consts::{CONFIG_PATH, PROFILE};
 use maimai_search_lib::image::maimai_best_50::{BestList, DrawBest};
@@ -43,18 +41,6 @@ fn test_string_to_half_width() {
 }
 
 #[test]
-fn test_pyo3() -> PyResult<()> {
-    Python::with_gil(|py| {
-        // 导入Pillow包
-        let pillow = py.import("PIL.Image")?;
-
-        // 创建一个白色图像
-        let image = pillow.call_method1("new", (256, 256, "white"))?;
-        Ok(())
-    })
-}
-
-#[test]
 fn test_draw_best() {
     let username = &PROFILE
         .remote_api
@@ -75,16 +61,16 @@ fn test_draw_best() {
         sd_best_list.push(chart)
     }
 
-    let draw_best = DrawBest::new(dx_best_list, sd_best_list, username);
-    draw_best.draw();
+    let mut draw_best = DrawBest::new(dx_best_list, sd_best_list, username);
+    draw_best.draw().expect("TODO: panic message");
 }
 
 #[test]
 fn test_create_draw_best() {
     let dx_best_list = BestList::new(15);
     let sd_best_list = BestList::new(35);
-    let draw_best = DrawBest::new(dx_best_list, sd_best_list, "ansel");
-    dbg!(draw_best);
+    let mut draw_best = DrawBest::new(dx_best_list, sd_best_list, "ansel");
+    draw_best.draw().expect("TODO: panic message");
 }
 
 #[test]

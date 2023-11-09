@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use image::{DynamicImage, GenericImage, GenericImageView, ImageError, ImageFormat};
+use image::imageops::FilterType;
+
 use crate::clients::user_data::entity::ChartInfoResponse;
-use crate::config::consts::CONFIG_PATH;
+use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
 use crate::image::utils::{compute_ra, get_ra_pic, string_to_half_width};
 
 static WIDTHS: [(u32, i32); 38] = [
@@ -133,20 +136,8 @@ pub struct DrawBest {
     pic_dir: PathBuf,
     /// 封面目录
     cover_dir: PathBuf,
-    /// 这个类在 Python 脚本里是 PIL 的 Image 类,初始化的原代码是这样的
-    ///
-    /// ```python
-    /// self.img = Image.open(self.pic_dir + 'UI_TTR_BG_Base_Plus.png').convert('RGBA')
-    /// ```
-    ///
-    /// 通过 FFI 传入这个 Path 字段估计与下例类似
-    ///
-    /// ```python
-    /// Image.open(image_path).convert('RGBA')
-    /// ```
-    ///
-    /// 具体如何实现可以 @AnselYuki 商量
-    img_path: PathBuf,
+    /// 基底图片,可以理解为画布
+    img: DynamicImage,
 }
 
 impl DrawBest {
@@ -167,6 +158,14 @@ impl DrawBest {
             .map(|sd| compute_ra(sd.ds, sd.achievements))
             .sum();
 
+        let img_path = CONFIG_PATH
+            .join("resource")
+            .join("mai")
+            .join("pic")
+            .join("UI_TTR_BG_Base_Plus.png");
+        let background = image::open(img_path).unwrap().to_rgba8();
+        let mut canvas = DynamicImage::new_rgba8(background.width(), background.height());
+        canvas.copy_from(&background, 0, 0).expect("图像处理失败");
         DrawBest {
             sd_best,
             dx_best,
@@ -176,11 +175,7 @@ impl DrawBest {
             player_rating: sd_rating + dx_rating,
             pic_dir: CONFIG_PATH.join("resource").join("mai").join("pic"),
             cover_dir: CONFIG_PATH.join("resource").join("mai").join("cover"),
-            img_path: CONFIG_PATH
-                .join("resource")
-                .join("mai")
-                .join("pic")
-                .join("UI_TTR_BG_Base_Plus.png"),
+            img: canvas,
         }
     }
 
@@ -229,8 +224,11 @@ impl DrawBest {
         output_str
     }
 
-    fn resize_pic() {
-        //TODO: _resizePic 方法,参数和返回值都是 Image,寄！
+    fn resize_pic(mut image: &DynamicImage, time: f32) -> DynamicImage {
+        let (w, h) = image.dimensions();
+        let width = f32::floor(w as f32 * time) as u32;
+        let height = f32::floor(h as f32 * time) as u32;
+        image.resize(width, height, FilterType::Nearest)
     }
 
     fn draw_rating(&self) {
@@ -250,39 +248,27 @@ impl DrawBest {
     ///TODO: 代码最多的一集.jpg
     fn draw_best_list() {}
 
-    pub fn draw(&self) {
-        let splash_logo_path = self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png");
-        dbg!(&splash_logo_path);
-        assert!(splash_logo_path.exists());
-        //splashLogo = Image.open(self.pic_dir + 'UI_CMN_TabTitle_MaimaiTitle_Ver214.png').convert('RGBA')
-        //splashLogo = self._resizePic(splashLogo, 0.65)
-        //splashLogo = self._resizePic(splashLogo, 0.65)
-        //self.img.paste(splashLogo, (10, 10), mask=splashLogo.split()[3])
+    pub fn draw(&mut self) -> Result<(), ImageError> {
+        dbg!(self.img.color());
+        let mut splash_logo = image::open(self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png"))?;
+        splash_logo = Self::resize_pic(&splash_logo, 0.65);
+        self.img.copy_from(&splash_logo, 10, 10)?;
 
-        let rating_base_img_path = self.pic_dir.join(get_ra_pic(self.player_rating as u32));
-        dbg!(&rating_base_img_path);
-        assert!(rating_base_img_path.exists());
-        //ratingBaseImg = Image.open(self.pic_dir + self._findRaPic()).convert('RGBA')
+        let mut rating_base_img = image::open(self.pic_dir.join(get_ra_pic(self.player_rating as u32)))?;
         //ratingBaseImg = self._drawRating(ratingBaseImg)
-        //ratingBaseImg = self._resizePic(ratingBaseImg, 0.85)
-        //self.img.paste(ratingBaseImg, (240, 8), mask=ratingBaseImg.split()[3])
+        rating_base_img = Self::resize_pic(&rating_base_img, 0.85);
+        self.img.copy_from(&rating_base_img, 240, 8)?;
 
-        let name_plate_img_path = self.pic_dir.join("UI_TST_PlateMask.png");
-        dbg!(&name_plate_img_path);
-        assert!(name_plate_img_path.exists());
-        //namePlateImg = Image.open(self.pic_dir + 'UI_TST_PlateMask.png').convert('RGBA')
-        //namePlateImg = namePlateImg.resize((285, 40))
+        let mut name_plate_img = image::open(self.pic_dir.join("UI_TST_PlateMask.png"))?;
+        name_plate_img = name_plate_img.resize(285, 40, FilterType::Nearest);
         //namePlateDraw = ImageDraw.Draw(namePlateImg)
         //font1 = ImageFont.truetype('src/static/msyh.ttc', 28, encoding='unic')
         //namePlateDraw.text((12, 4), ' '.join(list(self.userName)), 'black', font1)
 
-        let name_dx_img_path = self.pic_dir.join("UI_CMN_Name_DX.png");
-        dbg!(&name_dx_img_path);
-        assert!(name_dx_img_path.exists());
-        //nameDxImg = Image.open(self.pic_dir + 'UI_CMN_Name_DX.png').convert('RGBA')
-        //nameDxImg = self._resizePic(nameDxImg, 0.9)
-        //namePlateImg.paste(nameDxImg, (230, 4), mask=nameDxImg.split()[3])
-        //self.img.paste(namePlateImg, (240, 40), mask=namePlateImg.split()[3])
+        let mut name_dx_img = image::open(self.pic_dir.join("UI_CMN_Name_DX.png"))?;
+        name_dx_img = Self::resize_pic(&name_dx_img, 0.9);
+        name_plate_img.copy_from(&name_dx_img, 0, 0)?;
+        self.img.copy_from(&name_plate_img, 240, 40)?;
 
         let shougou_img_path = self.pic_dir.join("UI_CMN_Shougou_Rainbow.png");
         dbg!(&shougou_img_path);
@@ -333,5 +319,12 @@ impl DrawBest {
         assert!(sd_img_path.exists());
         //sdImg = Image.open(self.pic_dir + 'UI_RSL_MBase_Parts_02.png').convert('RGBA')
         //self.img.paste(sdImg, (865, 65), mask=sdImg.split()[3])
+
+        let path = LAUNCH_PATH.join("b50.png");
+        self.img
+            .save_with_format(&path, ImageFormat::Png)
+            .expect("TODO: panic message");
+        open::that(&path).unwrap();
+        Ok(())
     }
 }
