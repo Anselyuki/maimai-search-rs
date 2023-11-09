@@ -1,11 +1,12 @@
+use std::{fs, io};
 use std::fs::{create_dir, File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::exit;
-use std::{fs, io};
 
 use log::error;
+use rusttype::Font;
 
-use crate::config::consts::LAUNCH_PATH;
+use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
 
 pub struct FileUtils;
 
@@ -82,5 +83,24 @@ impl FileUtils {
         // 复制数据
         io::copy(&mut source_file, &mut dest_file)?;
         Ok(())
+    }
+
+    /// # 获取微软雅黑字体
+    pub fn get_msyh_font() -> Font<'static> {
+        let path = CONFIG_PATH
+            .join("resource")
+            .join("msyh.ttc");
+        let font_data = fs::read(path).unwrap();
+        let font = Font::try_from_bytes(font_data.leak()).unwrap();
+        return font;
+    }
+
+    /// # 获取 Adobe 黑体字体
+    pub fn get_adobe_simhei_font() -> Font<'static> {
+        let path = CONFIG_PATH
+            .join("resource")
+            .join("adobe_simhei.otf");
+        let font_data = fs::read(path).unwrap();
+        Font::try_from_bytes(font_data.leak()).unwrap()
     }
 }

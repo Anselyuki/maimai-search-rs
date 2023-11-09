@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use image::{DynamicImage, GenericImage, GenericImageView, ImageError, ImageFormat};
-use image::imageops::FilterType;
+use image::{DynamicImage, GenericImageView, ImageError, ImageFormat, RgbaImage};
+use image::imageops::{FilterType, overlay};
+use imageproc::drawing::{Canvas, draw_text_mut};
+use rusttype::Scale;
 
 use crate::clients::user_data::entity::ChartInfoResponse;
 use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
 use crate::image::utils::{compute_ra, get_ra_pic, string_to_half_width};
+use crate::utils::file::FileUtils;
 
 static WIDTHS: [(u32, i32); 38] = [
     (126, 1),
@@ -49,10 +52,18 @@ static WIDTHS: [(u32, i32); 38] = [
     (1114109, 1),
 ];
 
+static COLOR: [(i32, i32, i32); 5] = [
+    (69, 193, 36),
+    (255, 186, 1),
+    (255, 90, 102),
+    (134, 49, 200),
+    (217, 197, 233),
+];
+
 static COLUMNS_IMG: [i32; 12] = [2, 140, 278, 416, 554, 692, 830, 968, 988, 1126, 1264, 1402];
 static ROWS_IMG: [i32; 6] = [116, 212, 308, 404, 500, 596];
 
-static COLUMNS_RATING: [i32; 5] = [86, 100, 115, 130, 145];
+static COLUMNS_RATING: [i64; 5] = [86, 100, 115, 130, 145];
 
 /// # 自排序 Best 列表
 ///
@@ -137,7 +148,7 @@ pub struct DrawBest {
     /// 封面目录
     cover_dir: PathBuf,
     /// 基底图片,可以理解为画布
-    img: DynamicImage,
+    img: RgbaImage,
 }
 
 impl DrawBest {
@@ -163,9 +174,6 @@ impl DrawBest {
             .join("mai")
             .join("pic")
             .join("UI_TTR_BG_Base_Plus.png");
-        let background = image::open(img_path).unwrap().to_rgba8();
-        let mut canvas = DynamicImage::new_rgba8(background.width(), background.height());
-        canvas.copy_from(&background, 0, 0).expect("图像处理失败");
         DrawBest {
             sd_best,
             dx_best,
@@ -175,7 +183,7 @@ impl DrawBest {
             player_rating: sd_rating + dx_rating,
             pic_dir: CONFIG_PATH.join("resource").join("mai").join("pic"),
             cover_dir: CONFIG_PATH.join("resource").join("mai").join("cover"),
-            img: canvas,
+            img: image::open(img_path).unwrap().to_rgba8(),
         }
     }
 
@@ -224,65 +232,91 @@ impl DrawBest {
         output_str
     }
 
+    /// # 缩放图片
+    ///
+    /// 将大小不等的图片缩放指定的比例
     fn resize_pic(mut image: &DynamicImage, time: f32) -> DynamicImage {
-        let (w, h) = image.dimensions();
-        let width = f32::floor(w as f32 * time) as u32;
-        let height = f32::floor(h as f32 * time) as u32;
-        image.resize(width, height, FilterType::Nearest)
+        let width = f32::floor(image.width() as f32 * time) as u32;
+        let height = f32::floor(image.height() as f32 * time) as u32;
+        image.resize(width, height, FilterType::Lanczos3)
     }
 
-    fn draw_rating(&self) {
-        let mut the_ra = self.player_rating;
-        for i in (0..4).rev() {
-            let digit = the_ra % 10;
-            the_ra /= 10;
-            let image_path = self.pic_dir.join(format!("UI_NUM_Drating_{}.png", digit));
-            // TODO 这几个方法都是 PIL 实现,需要 Pyo3 调用,其中这个 Image.open() 的参数构建在上面了
-            // digitImg = Image.open(...).convert('RGBA');
-            // digitImg = self._resizePic(digitImg, 0.6)
-            // ratingBaseImg.paste(digitImg, (COLOUMS_RATING[i] - 2, 9), mask=digitImg.split()[3])
-            print!("[i:{}]:{}", i, image_path.as_path().display());
+    /// # 绘制 Rating 数字
+    ///
+    /// 在图片上绘制 Rating 数字
+    fn draw_rating(&self, mut rating_base_img: DynamicImage) -> DynamicImage {
+        let num_str = self.player_rating.to_string();
+        let mut digits: Vec<char> = num_str.chars().collect();
+        for (digit, index) in digits.iter().rev().zip(COLUMNS_RATING.iter().rev()) {
+            let mut digit_img =
+                image::open(self.pic_dir.join(format!("UI_NUM_Drating_{}.png", digit))).unwrap();
+            digit_img = Self::resize_pic(&digit_img, 0.6);
+            overlay(&mut rating_base_img, &digit_img, index - 2, 9);
         }
+        return rating_base_img;
     }
 
     ///TODO: 代码最多的一集.jpg
-    fn draw_best_list() {}
+    fn draw_best_list(&mut self) {
+        let item_w = 131;
+        let item_h = 88;
+        let level_triangle = [(item_w, 0), (item_w - 27, 0), (item_w, 27)];
+    }
 
     pub fn draw(&mut self) -> Result<(), ImageError> {
-        dbg!(self.img.color());
-        let mut splash_logo = image::open(self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png"))?;
+        // Splash LOGO
+        let mut splash_logo =
+            image::open(self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png"))?;
         splash_logo = Self::resize_pic(&splash_logo, 0.65);
-        self.img.copy_from(&splash_logo, 10, 10)?;
+        overlay(&mut self.img, &splash_logo, 10, 10);
 
-        let mut rating_base_img = image::open(self.pic_dir.join(get_ra_pic(self.player_rating as u32)))?;
-        //ratingBaseImg = self._drawRating(ratingBaseImg)
+        // 绘制 Rating 数字
+        let mut rating_base_img =
+            image::open(self.pic_dir.join(get_ra_pic(self.player_rating as u32)))?;
+        rating_base_img = self.draw_rating(rating_base_img);
         rating_base_img = Self::resize_pic(&rating_base_img, 0.85);
-        self.img.copy_from(&rating_base_img, 240, 8)?;
+        overlay(&mut self.img, &rating_base_img, 240, 8);
 
+        // 绘制姓名列
         let mut name_plate_img = image::open(self.pic_dir.join("UI_TST_PlateMask.png"))?;
-        name_plate_img = name_plate_img.resize(285, 40, FilterType::Nearest);
-        //namePlateDraw = ImageDraw.Draw(namePlateImg)
-        //font1 = ImageFont.truetype('src/static/msyh.ttc', 28, encoding='unic')
-        //namePlateDraw.text((12, 4), ' '.join(list(self.userName)), 'black', font1)
+        name_plate_img = name_plate_img.resize_exact(272, 40, FilterType::Lanczos3);
+        draw_text_mut(
+            &mut name_plate_img,
+            image::Rgba([0, 0, 0, 255]),
+            10,
+            5,
+            Scale::uniform(28.0),
+            &FileUtils::get_msyh_font(),
+            &self.username,
+        );
 
         let mut name_dx_img = image::open(self.pic_dir.join("UI_CMN_Name_DX.png"))?;
         name_dx_img = Self::resize_pic(&name_dx_img, 0.9);
-        name_plate_img.copy_from(&name_dx_img, 0, 0)?;
-        self.img.copy_from(&name_plate_img, 240, 40)?;
 
-        let shougou_img_path = self.pic_dir.join("UI_CMN_Shougou_Rainbow.png");
-        dbg!(&shougou_img_path);
-        assert!(shougou_img_path.exists());
-        //shougouImg = Image.open(self.pic_dir + 'UI_CMN_Shougou_Rainbow.png').convert('RGBA')
-        //shougouDraw = ImageDraw.Draw(shougouImg)
-        //font2 = ImageFont.truetype('src/static/adobe_simhei.otf', 14, encoding='utf-8')
+        overlay(&mut name_plate_img, &name_dx_img, 220, 4);
+        overlay(&mut self.img, &name_plate_img, 240, 40);
 
+        // 姓名列下面的 DX 分数计算列
+        let mut shougou_img = image::open(self.pic_dir.join("UI_CMN_Shougou_Rainbow.png"))?;
         let play_count_info = format!(
             "SD: {} + DX: {} = {}",
             self.sd_rating, self.dx_rating, self.player_rating
         );
-        dbg!(&play_count_info);
-        //shougouImgW, shougouImgH = shougouImg.size
+        let shougou_img_w = shougou_img.width();
+        let shougou_img_h = shougou_img.height();
+
+        draw_text_mut(
+            &mut shougou_img,
+            image::Rgba([0, 0, 0, 255]),
+            12,
+            4,
+            Scale::uniform(14.0),
+            &FileUtils::get_adobe_simhei_font(),
+            &play_count_info,
+        );
+
+        overlay(&mut self.img, &shougou_img, 240, 83);
+
         //playCountInfoW, playCountInfoH = shougouDraw.textsize(playCountInfo, font2)
         //textPos = ((shougouImgW - playCountInfoW - font2.getoffset(playCountInfo)[0]) / 2, 5)
         //shougouDraw.text((textPos[0] - 1, textPos[1]), playCountInfo, 'black', font2)
@@ -297,7 +331,7 @@ impl DrawBest {
         //shougouImg = self._resizePic(shougouImg, 1.05)
         //self.img.paste(shougouImg, (240, 83), mask=shougouImg.split()[3])
 
-        //self._drawBestList(self.img, self.sdBest, self.dxBest)
+        self.draw_best_list();
 
         let author_board_img_path = self.pic_dir.join("UI_CMN_MiniDialog_01.png");
         dbg!(&author_board_img_path);

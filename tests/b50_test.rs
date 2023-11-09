@@ -38,6 +38,7 @@ fn test_string_to_half_width() {
     let input_string = "Ｒｕｓｔ　语言";
     let output_string = string_to_half_width(&input_string);
     println!("{}", output_string); // 输出 "Rust 语言"
+    assert_eq!(output_string, "Rust 语言")
 }
 
 #[test]
