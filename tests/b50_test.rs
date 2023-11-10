@@ -1,4 +1,5 @@
 use maimai_search_lib::clients::user_data;
+use maimai_search_lib::clients::user_data::entity::{ChartInfoResponse, ChartRate, LevelLabel};
 use maimai_search_lib::config::consts::{CONFIG_PATH, PROFILE};
 use maimai_search_lib::image::maimai_best_50::{BestList, DrawBest};
 use maimai_search_lib::image::utils::{compute_ra, get_ra_pic, string_to_half_width};
@@ -61,16 +62,46 @@ fn test_draw_best() {
     for chart in sd_charts {
         sd_best_list.push(chart)
     }
-
-    let mut draw_best = DrawBest::new(dx_best_list, sd_best_list, username);
+    let mut draw_best = DrawBest::new(sd_best_list, dx_best_list, &*resp.nickname);
     draw_best.draw().expect("TODO: panic message");
 }
 
 #[test]
 fn test_create_draw_best() {
     let dx_best_list = BestList::new(15);
-    let sd_best_list = BestList::new(35);
-    let mut draw_best = DrawBest::new(dx_best_list, sd_best_list, "ansel");
+    let mut sd_best_list = BestList::new(35);
+    sd_best_list.push(ChartInfoResponse {
+        achievements: 100.8692,
+        ds: 13.4,
+        dx_score: 1791,
+        fc: "fcp".to_string(),
+        fs: "fs".to_string(),
+        level: "12+".to_string(),
+        level_index: 3,
+        level_label: LevelLabel::Master,
+        ra: 288,
+        rate: ChartRate::SSSP,
+        song_id: 547,
+        title: "私の中の幻想的世界観及びその顕現を想起させたある現実での出来事に関する一考察"
+            .to_string(),
+        song_type: "SD".to_string(),
+    });
+    sd_best_list.push(ChartInfoResponse {
+        achievements: 97.5604,
+        ds: 13.2,
+        dx_score: 2018,
+        fc: "fcp".to_string(),
+        fs: "fs".to_string(),
+        level: "13".to_string(),
+        level_index: 3,
+        level_label: LevelLabel::Master,
+        ra: 257,
+        rate: ChartRate::S,
+        song_id: 11266,
+        title: "キラメキ居残り大戦争".to_string(),
+        song_type: "DX".to_string(),
+    });
+    let mut draw_best = DrawBest::new(sd_best_list, dx_best_list, "ANSEL");
     draw_best.draw().expect("TODO: panic message");
 }
 

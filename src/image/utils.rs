@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 /// # 字符串全角转半角
 ///
 /// > 舞萌 DX 里用的用户名都是全角,这就是为什么在机台上看起来 **那 么 宽** 的原因
@@ -70,4 +72,90 @@ pub fn get_ra_pic(rating: u32) -> String {
             _ => "10",
         }
     )
+}
+
+static WIDTHS: [(u32, i32); 38] = [
+    (126, 1),
+    (159, 0),
+    (687, 1),
+    (710, 0),
+    (711, 1),
+    (727, 0),
+    (733, 1),
+    (879, 0),
+    (1154, 1),
+    (1161, 0),
+    (4347, 1),
+    (4447, 2),
+    (7467, 1),
+    (7521, 0),
+    (8369, 1),
+    (8426, 0),
+    (9000, 1),
+    (9002, 2),
+    (11021, 1),
+    (12350, 2),
+    (12351, 1),
+    (12438, 2),
+    (12442, 0),
+    (19893, 2),
+    (19967, 1),
+    (55203, 2),
+    (63743, 1),
+    (64106, 2),
+    (65039, 1),
+    (65059, 0),
+    (65131, 2),
+    (65279, 1),
+    (65376, 2),
+    (65500, 1),
+    (65510, 2),
+    (120831, 1),
+    (262141, 2),
+    (1114109, 1),
+];
+
+/// # 获取字符宽度
+pub(crate) fn get_char_width(o: u32) -> i32 {
+    match o {
+        _ => {}
+    }
+    if o == 0xe || o == 0xf {
+        return 0;
+    }
+    for &(num, wid) in WIDTHS.iter() {
+        if o <= num {
+            return wid;
+        }
+    }
+    return 1;
+}
+
+/// # 计算歌曲标题字符数量
+pub(crate) fn column_width(s: &str) -> i32 {
+    s.chars().map(|ch| get_char_width(ch as u32)).sum()
+}
+
+/// # 截断过长的歌曲标题
+///
+/// > 使用了一个哈希表来缓存 `get_char_width()` 方法的结果,这样可以避免在每个字符上重复调用该方法
+pub(crate) fn change_column_width(s: &str, len: i32) -> String {
+    let mut res = 0;
+    let mut char_list = Vec::new();
+    let mut char_width_cache = HashMap::new();
+
+    for ch in s.chars() {
+        res += *char_width_cache
+            .entry(ch)
+            .or_insert_with(|| get_char_width(ch as u32));
+        if res <= len {
+            char_list.push(ch);
+        } else {
+            break;
+        }
+    }
+
+    let mut output_str = String::with_capacity(char_list.len());
+    output_str.extend(char_list);
+    output_str
 }

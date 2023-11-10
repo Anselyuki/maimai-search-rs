@@ -48,6 +48,7 @@ pub mod entity {
     use std::cmp::Ordering;
     use std::fmt::Display;
 
+    use image::Rgba;
     use serde::{Deserialize, Serialize};
 
     /// 查分器返回的数据
@@ -61,7 +62,7 @@ pub mod entity {
         pub nickname: String,
         /// 底分
         pub rating: i32,
-        /// 不知道干啥的,先放着
+        /// 用户段位(查分器拿不到,所以是在查分器网站上设置几段就几段)
         pub additional_rating: i32,
         /// 又一个不知道干啥的,先放着
         pub plate: String,
@@ -69,13 +70,13 @@ pub mod entity {
         pub user_general_data: Option<String>,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Charts {
         pub dx: Vec<ChartInfoResponse>,
         pub sd: Vec<ChartInfoResponse>,
     }
 
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct ChartInfoResponse {
         /// 达成率
         pub achievements: f32,
@@ -136,6 +137,18 @@ pub mod entity {
         }
     }
 
+    impl LevelLabel {
+        pub fn label_color(&self) -> Rgba<u8> {
+            match self {
+                LevelLabel::Basic => Rgba([69, 193, 36, 255]),
+                LevelLabel::Advanced => Rgba([255, 186, 1, 255]),
+                LevelLabel::Expert => Rgba([255, 90, 102, 255]),
+                LevelLabel::Master => Rgba([134, 49, 200, 255]),
+                LevelLabel::ReMaster => Rgba([217, 197, 233, 255]),
+            }
+        }
+    }
+
     #[derive(Clone, Debug, Serialize, Deserialize)]
     #[serde(rename_all = "lowercase")]
     #[derive(PartialEq, PartialOrd)]
@@ -175,6 +188,30 @@ pub mod entity {
                 ChartRate::SSSP => "SSS+",
             };
             write!(f, "{}", rate_str)
+        }
+    }
+
+    impl ChartRate {
+        pub fn get_file_name(&self) -> String {
+            format!(
+                "UI_GAM_Rank_{}.png",
+                match self {
+                    ChartRate::D => "D",
+                    ChartRate::C => "C",
+                    ChartRate::B => "B",
+                    ChartRate::BB => "BB",
+                    ChartRate::BBB => "BBB",
+                    ChartRate::A => "A",
+                    ChartRate::AA => "AA",
+                    ChartRate::AAA => "AAA",
+                    ChartRate::S => "S",
+                    ChartRate::SP => "Sp",
+                    ChartRate::SS => "SS",
+                    ChartRate::SSP => "SSp",
+                    ChartRate::SSS => "SSS",
+                    ChartRate::SSSP => "SSSp",
+                }
+            )
         }
     }
 
