@@ -7,9 +7,9 @@ pub mod consts {
 
     use lazy_static::lazy_static;
     use platform_dirs::AppDirs;
+    use prettytable::{Attr, Cell};
     use prettytable::color::{GREEN, MAGENTA, RED, WHITE, YELLOW};
     use prettytable::format::*;
-    use prettytable::{Attr, Cell};
     use tantivy::schema::Schema;
 
     use crate::clients::song_data::entity::Song;
@@ -127,6 +127,11 @@ pub mod command {
             /// 在配置文件夹内创建默认配置文件
             #[arg(short, long)]
             default: bool,
+        },
+        /// 生成 B50 图片
+        B50 {
+            /// 用户名,可选参数,如果不填写则使用配置文件中的用户名
+            username: Option<String>
         },
     }
 

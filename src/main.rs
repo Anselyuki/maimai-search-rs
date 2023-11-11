@@ -6,8 +6,11 @@ use clap::Parser;
 use log::error;
 
 use maimai_search_lib::clients::song_data;
+use maimai_search_lib::clients::user_data::get_b50_data;
 use maimai_search_lib::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
+use maimai_search_lib::config::consts::PROFILE;
 use maimai_search_lib::config::profiles::Profile;
+use maimai_search_lib::image::maimai_best_50::{BestList, DrawBest};
 use maimai_search_lib::service::resource;
 use maimai_search_lib::utils::printer::PrinterHandler;
 use maimai_search_lib::utils::simple_log;
@@ -47,14 +50,14 @@ fn main() {
         }
         // markdown 输出子命令
         Some(SubCommands::Md {
-            command,
-            name,
-            count,
-            detail,
-            output,
-            add,
-            level,
-        }) => {
+                 command,
+                 name,
+                 count,
+                 detail,
+                 output,
+                 add,
+                 level,
+             }) => {
             if output.is_some() && add.is_some() {
                 error!("add 参数和 output 参数不能同时使用");
                 exit(exitcode::USAGE)
@@ -69,17 +72,57 @@ fn main() {
                     }
                 }
                 Some(MarkdownSubCommands::Id {
-                    ids,
-                    output,
-                    detail,
-                    add,
-                    level,
-                }) => {
+                         ids,
+                         output,
+                         detail,
+                         add,
+                         level,
+                     }) => {
                     let songs = ids
                         .iter()
                         .flat_map(|id| song_data::search_songs_by_id(*id))
                         .collect();
                     PrinterHandler::file_handler(songs, detail, output, add, level);
+                }
+            }
+        }
+
+        Some(SubCommands::B50 { username }) => {
+            let username = match username {
+                None => {
+                    match PROFILE.remote_api.maimaidxprober.username.clone() {
+                        Some(username) => username,
+                        None => {
+                            error!("未指定用户名,请在配置文件中指定用户名或者使用 --username 指定用户名");
+                            exit(exitcode::USAGE)
+                        }
+                    }
+                }
+                Some(username) => username
+            };
+            let resp = match get_b50_data(username.as_str()) {
+                Ok(resp) => resp,
+                Err(e) => {
+                    error!("获取数据失败: {}", e);
+                    exit(exitcode::NOHOST);
+                }
+            };
+            let dx_charts = resp.charts.dx;
+            let mut dx_best_list = BestList::new(15);
+            for chart in dx_charts {
+                dx_best_list.push(chart)
+            }
+            let sd_charts = resp.charts.sd;
+            let mut sd_best_list = BestList::new(35);
+            for chart in sd_charts {
+                sd_best_list.push(chart)
+            }
+            let mut draw_best = DrawBest::new(sd_best_list, dx_best_list, &*resp.nickname);
+            match draw_best.draw() {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("绘制失败: {}", e);
+                    exit(exitcode::SOFTWARE);
                 }
             }
         }
