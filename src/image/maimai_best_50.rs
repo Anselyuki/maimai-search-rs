@@ -1,8 +1,8 @@
 use std::ops::Index;
 use std::path::PathBuf;
 
+use image::imageops::{overlay, FilterType};
 use image::{DynamicImage, ImageError, ImageFormat, Pixel, Rgba, RgbaImage};
-use image::imageops::{FilterType, overlay};
 use imageproc::drawing::{draw_filled_rect_mut, draw_polygon_mut, draw_text_mut};
 use imageproc::map::map_colors_mut;
 use imageproc::point::Point;
@@ -183,15 +183,16 @@ impl DrawBest {
         // 绘制 b35 存在的图片列
         for num in 0..self.sd_best.len() {
             // 7 列一行排列的 B35
-            let i = num / 7;
-            let j = num % 7;
             let chart = self.sd_best.data.index(num).clone();
-
             let cover = self.draw_best_item(num, chart)?;
-
             // 绘制 item 的阴影,并把绘制完的 item 覆盖到最终输出里
-            self.img = self.draw_item_shadow(COLUMNS_IMG[j], ROWS_IMG[i]);
-            overlay(&mut self.img, &cover, COLUMNS_IMG[j] + 4, ROWS_IMG[i] + 4);
+            self.img = self.draw_item_shadow(COLUMNS_IMG[num % 7], ROWS_IMG[num / 7]);
+            overlay(
+                &mut self.img,
+                &cover,
+                COLUMNS_IMG[num % 7] + 4,
+                ROWS_IMG[num / 7] + 4,
+            );
         }
 
         // 这里处理不完整的 b35 列表占位图
@@ -209,13 +210,28 @@ impl DrawBest {
         // 绘制 b15 存在的图片列
         for num in 0..self.dx_best.len() {
             // 3 列一行排列的 B15
-            let i = num / 3;
-            let j = num % 3;
             let chart = self.dx_best.data.index(num).clone();
             let cover = self.draw_best_item(num, chart)?;
             // 绘制 item 的阴影,并把绘制完的 item 覆盖到最终输出里
-            self.img = self.draw_item_shadow(COLUMNS_IMG[j + 8], ROWS_IMG[i]);
-            overlay(&mut self.img, &cover, COLUMNS_IMG[j + 8] + 4, ROWS_IMG[i] + 4);
+            self.img = self.draw_item_shadow(COLUMNS_IMG[(num % 3) + 8], ROWS_IMG[num / 3]);
+            overlay(
+                &mut self.img,
+                &cover,
+                COLUMNS_IMG[(num % 3) + 8] + 4,
+                ROWS_IMG[num / 3] + 4,
+            );
+        }
+
+        // 这里处理不完整的 b15 列表占位图
+        for num in self.dx_best.len()..self.dx_best.size {
+            let cover = self.get_blank_item()?;
+            self.img = self.draw_item_shadow(COLUMNS_IMG[num % 3 + 8], ROWS_IMG[num / 3]);
+            overlay(
+                &mut self.img,
+                &cover,
+                COLUMNS_IMG[num % 3 + 8] + 4,
+                ROWS_IMG[num / 3] + 4,
+            );
         }
         Ok(self.img.clone())
     }
@@ -235,7 +251,11 @@ impl DrawBest {
     }
 
     /// 绘制单个谱面元素
-    fn draw_best_item(&mut self, num: usize, chart: ChartInfoResponse) -> Result<DynamicImage, ImageError> {
+    fn draw_best_item(
+        &mut self,
+        num: usize,
+        chart: ChartInfoResponse,
+    ) -> Result<DynamicImage, ImageError> {
         let level_triangle = [
             Point::new(ITEM_WIDTH, 0),
             Point::new(ITEM_WIDTH - 27, 0),
@@ -244,11 +264,11 @@ impl DrawBest {
         let font = FileUtils::get_adobe_simhei_font();
 
         // 获取歌曲封面
-        let mut cover =
-            match image::open(self.cover_dir.join(format!("{:0>5}.png", chart.song_id))) {
-                Ok(image) => image,
-                Err(_) => image::open(self.cover_dir.join("01000.png"))?,
-            };
+        let mut cover = match image::open(self.cover_dir.join(format!("{:0>5}.png", chart.song_id)))
+        {
+            Ok(image) => image,
+            Err(_) => image::open(self.cover_dir.join("01000.png"))?,
+        };
         cover = Self::resize_pic(&cover, ITEM_WIDTH as f32 / cover.width() as f32);
         // 裁剪谱面图片,加上高斯模糊
         cover = cover
@@ -269,9 +289,6 @@ impl DrawBest {
                 rgba[3],
             ])
         });
-
-        // 在谱面右上角绘制等级定数小三角
-        draw_polygon_mut(&mut cover, &level_triangle, chart.level_label.label_color());
 
         // 绘制谱面标题
         let mut title = chart.title.clone();
@@ -304,8 +321,7 @@ impl DrawBest {
         rank_img = Self::resize_pic(&rank_img, 0.3);
         overlay(&mut cover, &rank_img, 72, 28);
 
-        let mut blank_img =
-            image::open(self.pic_dir.join(format!("UI_MSS_MBase_Icon_Blank.png")))?;
+        let mut blank_img = image::open(self.pic_dir.join(format!("UI_MSS_MBase_Icon_Blank.png")))?;
         blank_img = Self::resize_pic(&blank_img, 0.48);
         if !chart.fc.is_empty() {
             let mut fc_img = image::open(
@@ -341,7 +357,7 @@ impl DrawBest {
                 chart.ds,
                 compute_ra(chart.ds, chart.achievements)
             )
-                .as_str(),
+            .as_str(),
         );
         draw_text_mut(
             &mut cover,
@@ -352,6 +368,9 @@ impl DrawBest {
             &font,
             format!("#{}", num + 1).as_str(),
         );
+
+        // 在谱面右上角绘制等级定数小三角
+        draw_polygon_mut(&mut cover, &level_triangle, chart.level_label.label_color());
         Ok(cover)
     }
 
@@ -417,7 +436,7 @@ impl DrawBest {
                 &mut shougou_img,
                 Rgba([50, 50, 50, 255]),
                 12 + x,
-                7 + y,
+                6 + y,
                 Scale::uniform(14.0),
                 &font,
                 &play_count_info,
@@ -427,7 +446,7 @@ impl DrawBest {
             &mut shougou_img,
             Rgba([255, 255, 255, 255]),
             12,
-            7,
+            6,
             Scale::uniform(14.0),
             &font,
             &play_count_info,

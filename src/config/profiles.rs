@@ -74,10 +74,26 @@ impl Profile {
         match file.write_all(yaml.as_bytes()) {
             Ok(_) => {
                 info!("已成功创建配置文件:{}", path.display());
-                open::that(path).unwrap();
             }
             Err(e) => {
                 error!("无法写入文件{:?}", e);
+                exit(exitcode::IOERR);
+            }
+        }
+    }
+
+    pub fn open_config() {
+        let path = &CONFIG_PATH.join("config.yml");
+        if !path.exists() {
+            info!("不存在已有的配置文件,请使用 config --detail(-d) 标志来创建默认配置文件");
+            exit(exitcode::OK)
+        }
+        match open::that(path) {
+            Ok(_) => {
+                info!("已成功打开配置文件:{}", path.display());
+            }
+            Err(e) => {
+                error!("无法打开文件{:?}", e);
                 exit(exitcode::IOERR);
             }
         }

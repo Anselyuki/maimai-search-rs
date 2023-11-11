@@ -44,7 +44,7 @@ fn test_string_to_half_width() {
 
 #[test]
 fn test_draw_best() {
-    let resp = user_data::get_b50_data("leo88158").expect("TODO: panic message");
+    let resp = user_data::get_b50_data("Ashlof").expect("TODO: panic message");
     let dx_charts = resp.charts.dx;
     let mut dx_best_list = BestList::new(15);
     for chart in dx_charts {

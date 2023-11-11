@@ -4,10 +4,10 @@ use std::process::exit;
 use std::string::ToString;
 use std::vec::Vec;
 
-use crate::clients::song_data::entity::Song;
-use log::{error, info};
+use log::{error, info, warn};
 use prettytable::format::consts::FORMAT_BOX_CHARS;
 
+use crate::clients::song_data::entity::Song;
 use crate::config::command::ChartLevel;
 use crate::config::consts::{MARKDOWN_TABLE_STYLE, PROFILE};
 use crate::service::table::{SongTable, TableService};
@@ -35,7 +35,7 @@ impl PrinterHandler {
                 level,
             ),
         };
-        ConsolePrinter::print_std(table_vec, true);
+        ConsolePrinter::print_std(table_vec, false);
     }
 
     /// Markdown 格式处理器
@@ -81,6 +81,10 @@ impl PrinterHandler {
 impl ConsolePrinter {
     /// 输出表格的详细信息
     fn print_std(song_tables: Vec<SongTable>, markdown: bool) {
+        if song_tables.is_empty() {
+            warn!("找不到对应的歌曲!");
+            exit(exitcode::DATAERR)
+        }
         for song_table in song_tables {
             let mut table = song_table.table;
             if markdown {

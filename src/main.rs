@@ -47,17 +47,18 @@ fn main() {
             if default {
                 Profile::create_default()
             }
+            Profile::open_config()
         }
         // markdown 输出子命令
         Some(SubCommands::Md {
-                 command,
-                 name,
-                 count,
-                 detail,
-                 output,
-                 add,
-                 level,
-             }) => {
+            command,
+            name,
+            count,
+            detail,
+            output,
+            add,
+            level,
+        }) => {
             if output.is_some() && add.is_some() {
                 error!("add 参数和 output 参数不能同时使用");
                 exit(exitcode::USAGE)
@@ -72,12 +73,12 @@ fn main() {
                     }
                 }
                 Some(MarkdownSubCommands::Id {
-                         ids,
-                         output,
-                         detail,
-                         add,
-                         level,
-                     }) => {
+                    ids,
+                    output,
+                    detail,
+                    add,
+                    level,
+                }) => {
                     let songs = ids
                         .iter()
                         .flat_map(|id| song_data::search_songs_by_id(*id))
@@ -98,7 +99,7 @@ fn main() {
                         }
                     }
                 }
-                Some(username) => username
+                Some(username) => username,
             };
             let resp = match get_b50_data(username.as_str()) {
                 Ok(resp) => resp,

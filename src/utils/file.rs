@@ -1,4 +1,4 @@
-use std::fs::{create_dir, File, OpenOptions};
+use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::{fs, io};
@@ -14,8 +14,8 @@ impl FileUtils {
     /// 如果路径存在则创建
     pub fn create_dir(path: &PathBuf) {
         if !path.exists() {
-            if let Err(error) = create_dir(path) {
-                error!("创建文件/文件夹失败!\n[Cause]{:?}", error)
+            if let Err(error) = create_dir_all(path) {
+                error!("创建文件/文件夹失败!\n[Cause]:{:?}", error)
             }
         }
     }
