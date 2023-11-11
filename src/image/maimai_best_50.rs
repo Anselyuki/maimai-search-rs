@@ -1,8 +1,8 @@
 use std::ops::Index;
 use std::path::PathBuf;
 
-use image::imageops::{overlay, FilterType};
 use image::{DynamicImage, ImageError, ImageFormat, Pixel, Rgba, RgbaImage};
+use image::imageops::{FilterType, overlay};
 use imageproc::drawing::{draw_filled_rect_mut, draw_polygon_mut, draw_text_mut};
 use imageproc::map::map_colors_mut;
 use imageproc::point::Point;
@@ -180,132 +180,24 @@ impl DrawBest {
 
     /// 绘制歌曲列表
     fn draw_best_list(&mut self) -> Result<DynamicImage, ImageError> {
-        let level_triangle = [
-            Point::new(ITEM_WIDTH, 0),
-            Point::new(ITEM_WIDTH - 27, 0),
-            Point::new(ITEM_WIDTH, 27),
-        ];
-        dbg!(&self.sd_best);
-        let font = FileUtils::get_adobe_simhei_font();
-        // 绘制存在的图片列
+        // 绘制 b35 存在的图片列
         for num in 0..self.sd_best.len() {
-            // 7列一行排列的 B35
+            // 7 列一行排列的 B35
             let i = num / 7;
             let j = num % 7;
-            let chart = self.sd_best.data.index(num);
+            let chart = self.sd_best.data.index(num).clone();
 
-            // 获取歌曲封面
-            let mut cover =
-                match image::open(self.cover_dir.join(format!("{:0>5}.png", chart.song_id))) {
-                    Ok(image) => image,
-                    Err(_) => image::open(self.cover_dir.join("01000.png"))?,
-                };
-            cover = Self::resize_pic(&cover, ITEM_WIDTH as f32 / cover.width() as f32);
-            // 裁剪谱面图片,加上高斯模糊
-            cover = cover
-                .crop_imm(
-                    0,
-                    (cover.height() - ITEM_HEIGHT as u32) / 2,
-                    ITEM_WIDTH as u32,
-                    ITEM_HEIGHT as u32,
-                )
-                .blur(3.0);
-            // 谱面图片压暗
-            map_colors_mut(&mut cover, |pixel| {
-                let rgba = pixel.channels();
-                Rgba([
-                    (rgba[0] as f32 * 0.72).floor() as u8,
-                    (rgba[1] as f32 * 0.72).floor() as u8,
-                    (rgba[2] as f32 * 0.72).floor() as u8,
-                    rgba[3],
-                ])
-            });
-
-            // 在谱面右上角绘制等级定数小三角
-            draw_polygon_mut(&mut cover, &level_triangle, chart.level_label.label_color());
-
-            // 绘制谱面标题
-            let mut title = chart.title.clone();
-            if column_width(&*chart.title) > 15 {
-                title = utils::change_column_width(&chart.title, 12) + "...";
-            }
-            draw_text_mut(
-                &mut cover,
-                Rgba([255, 255, 255, 255]),
-                8,
-                8,
-                Scale::uniform(16.0),
-                &font,
-                &*title,
-            );
-
-            // 绘制达成率
-            draw_text_mut(
-                &mut cover,
-                Rgba([255, 255, 255, 255]),
-                7,
-                28,
-                Scale::uniform(12.0),
-                &font,
-                format!("{:.4}%", chart.achievements).as_str(),
-            );
-
-            // Rank 图片
-            let mut rank_img = image::open(self.pic_dir.join(chart.rate.get_file_name()))?;
-            rank_img = Self::resize_pic(&rank_img, 0.3);
-            overlay(&mut cover, &rank_img, 72, 28);
-
-            //  if chartInfo.comboId:
-            //      comboImg = Image.open(self.pic_dir + f'UI_MSS_MBase_Icon_{comboPic[chartInfo.comboId]}_S.png').convert('RGBA')
-            //      comboImg = self._resizePic(comboImg, 0.45)
-            //      temp.paste(comboImg, (103, 27), comboImg.split()[3])
-
-            draw_text_mut(
-                &mut cover,
-                Rgba([255, 255, 255, 255]),
-                8,
-                44,
-                Scale::uniform(12.0),
-                &font,
-                format!(
-                    "Base: {} -> {}",
-                    chart.ds,
-                    compute_ra(chart.ds, chart.achievements)
-                )
-                .as_str(),
-            );
-            draw_text_mut(
-                &mut cover,
-                Rgba([255, 255, 255, 255]),
-                8,
-                60,
-                Scale::uniform(18.0),
-                &font,
-                format!("#{}", num + 1).as_str(),
-            );
+            let cover = self.draw_best_item(num, chart)?;
 
             // 绘制 item 的阴影,并把绘制完的 item 覆盖到最终输出里
-            self.img =
-                self.draw_item_shadow(COLUMNS_IMG[j], ROWS_IMG[i], chart.level_label.label_color());
+            self.img = self.draw_item_shadow(COLUMNS_IMG[j], ROWS_IMG[i]);
             overlay(&mut self.img, &cover, COLUMNS_IMG[j] + 4, ROWS_IMG[i] + 4);
         }
 
         // 这里处理不完整的 b35 列表占位图
         for num in self.sd_best.len()..self.sd_best.size {
-            let mut cover = image::open(self.cover_dir.join("01000.png"))?;
-            cover = Self::resize_pic(&cover, ITEM_WIDTH as f32 / cover.width() as f32);
-            cover = cover.crop_imm(
-                0,
-                (cover.height() - ITEM_HEIGHT as u32) / 2,
-                ITEM_WIDTH as u32,
-                ITEM_HEIGHT as u32,
-            );
-            cover = cover.blur(3.0);
-            self.img = self.draw_item_shadow(
-                COLUMNS_IMG[num % 7],
-                ROWS_IMG[num / 7],
-                Rgba([75, 75, 75, 255]),
-            );
+            let cover = self.get_blank_item()?;
+            self.img = self.draw_item_shadow(COLUMNS_IMG[num % 7], ROWS_IMG[num / 7]);
             overlay(
                 &mut self.img,
                 &cover,
@@ -313,34 +205,170 @@ impl DrawBest {
                 ROWS_IMG[num / 7] + 4,
             );
         }
+
+        // 绘制 b15 存在的图片列
+        for num in 0..self.dx_best.len() {
+            // 3 列一行排列的 B15
+            let i = num / 3;
+            let j = num % 3;
+            let chart = self.dx_best.data.index(num).clone();
+            let cover = self.draw_best_item(num, chart)?;
+            // 绘制 item 的阴影,并把绘制完的 item 覆盖到最终输出里
+            self.img = self.draw_item_shadow(COLUMNS_IMG[j + 8], ROWS_IMG[i]);
+            overlay(&mut self.img, &cover, COLUMNS_IMG[j + 8] + 4, ROWS_IMG[i] + 4);
+        }
         Ok(self.img.clone())
     }
 
+    /// 获取空白的谱面元素
+    fn get_blank_item(&mut self) -> Result<DynamicImage, ImageError> {
+        let mut cover = image::open(self.cover_dir.join("01000.png"))?;
+        cover = Self::resize_pic(&cover, ITEM_WIDTH as f32 / cover.width() as f32);
+        cover = cover.crop_imm(
+            0,
+            (cover.height() - ITEM_HEIGHT as u32) / 2,
+            ITEM_WIDTH as u32,
+            ITEM_HEIGHT as u32,
+        );
+        cover = cover.blur(3.0);
+        Ok(cover)
+    }
+
+    /// 绘制单个谱面元素
+    fn draw_best_item(&mut self, num: usize, chart: ChartInfoResponse) -> Result<DynamicImage, ImageError> {
+        let level_triangle = [
+            Point::new(ITEM_WIDTH, 0),
+            Point::new(ITEM_WIDTH - 27, 0),
+            Point::new(ITEM_WIDTH, 27),
+        ];
+        let font = FileUtils::get_adobe_simhei_font();
+
+        // 获取歌曲封面
+        let mut cover =
+            match image::open(self.cover_dir.join(format!("{:0>5}.png", chart.song_id))) {
+                Ok(image) => image,
+                Err(_) => image::open(self.cover_dir.join("01000.png"))?,
+            };
+        cover = Self::resize_pic(&cover, ITEM_WIDTH as f32 / cover.width() as f32);
+        // 裁剪谱面图片,加上高斯模糊
+        cover = cover
+            .crop_imm(
+                0,
+                (cover.height() - ITEM_HEIGHT as u32) / 2,
+                ITEM_WIDTH as u32,
+                ITEM_HEIGHT as u32,
+            )
+            .blur(3.0);
+        // 谱面图片压暗
+        map_colors_mut(&mut cover, |pixel| {
+            let rgba = pixel.channels();
+            Rgba([
+                (rgba[0] as f32 * 0.72).floor() as u8,
+                (rgba[1] as f32 * 0.72).floor() as u8,
+                (rgba[2] as f32 * 0.72).floor() as u8,
+                rgba[3],
+            ])
+        });
+
+        // 在谱面右上角绘制等级定数小三角
+        draw_polygon_mut(&mut cover, &level_triangle, chart.level_label.label_color());
+
+        // 绘制谱面标题
+        let mut title = chart.title.clone();
+        if column_width(&*chart.title) > 15 {
+            title = utils::change_column_width(&chart.title, 12) + "...";
+        }
+        draw_text_mut(
+            &mut cover,
+            Rgba([255, 255, 255, 255]),
+            8,
+            8,
+            Scale::uniform(16.0),
+            &font,
+            &*title,
+        );
+
+        // 绘制达成率
+        draw_text_mut(
+            &mut cover,
+            Rgba([255, 255, 255, 255]),
+            7,
+            28,
+            Scale::uniform(12.0),
+            &font,
+            format!("{:.4}%", chart.achievements).as_str(),
+        );
+
+        // Rank 图片
+        let mut rank_img = image::open(self.pic_dir.join(chart.rate.get_file_name()))?;
+        rank_img = Self::resize_pic(&rank_img, 0.3);
+        overlay(&mut cover, &rank_img, 72, 28);
+
+        let mut blank_img =
+            image::open(self.pic_dir.join(format!("UI_MSS_MBase_Icon_Blank.png")))?;
+        blank_img = Self::resize_pic(&blank_img, 0.48);
+        if !chart.fc.is_empty() {
+            let mut fc_img = image::open(
+                self.pic_dir
+                    .join(format!("UI_MSS_MBase_Icon_{}_S.png", chart.fc)),
+            )?;
+            fc_img = Self::resize_pic(&fc_img, 0.48);
+            overlay(&mut cover, &fc_img, 105, 60);
+        } else {
+            overlay(&mut cover, &blank_img, 105, 60);
+        }
+
+        if !chart.fs.is_empty() {
+            let mut fs_img = image::open(
+                self.pic_dir
+                    .join(format!("UI_MSS_MBase_Icon_{}_S.png", chart.fs)),
+            )?;
+            fs_img = Self::resize_pic(&fs_img, 0.48);
+            overlay(&mut cover, &fs_img, 80, 60);
+        } else {
+            overlay(&mut cover, &blank_img, 80, 60);
+        }
+
+        draw_text_mut(
+            &mut cover,
+            Rgba([255, 255, 255, 255]),
+            8,
+            44,
+            Scale::uniform(12.0),
+            &font,
+            format!(
+                "Base: {} -> {}",
+                chart.ds,
+                compute_ra(chart.ds, chart.achievements)
+            )
+                .as_str(),
+        );
+        draw_text_mut(
+            &mut cover,
+            Rgba([255, 255, 255, 255]),
+            8,
+            60,
+            Scale::uniform(18.0),
+            &font,
+            format!("#{}", num + 1).as_str(),
+        );
+        Ok(cover)
+    }
+
     /// 绘制谱面元素下面的阴影
-    fn draw_item_shadow(&mut self, x: i64, y: i64, label_color: Rgba<u8>) -> DynamicImage {
+    fn draw_item_shadow(&mut self, x: i64, y: i64) -> DynamicImage {
         let mut mask = RgbaImage::new(ITEM_WIDTH as u32, ITEM_HEIGHT as u32);
         draw_filled_rect_mut(
             &mut mask,
             Rect::at(0, 0).of_size(ITEM_WIDTH as u32, ITEM_HEIGHT as u32),
             Rgba([0, 0, 0, 150]),
         );
-        // 在谱面右上角绘制等级定数小三角
-        let rgba = label_color.channels();
-        draw_polygon_mut(
-            &mut mask,
-            &[
-                Point::new(ITEM_WIDTH, 0),
-                Point::new(ITEM_WIDTH - 28, 0),
-                Point::new(ITEM_WIDTH , 28),
-            ],
-            Rgba([rgba[0], rgba[1], rgba[2], 200]),
-        );
-
         overlay(&mut self.img, &mask, x + 6, y + 6);
         self.img.clone()
     }
 
     pub fn draw(&mut self) -> Result<(), ImageError> {
+        let font = FileUtils::get_adobe_simhei_font();
         // Splash LOGO
         let mut splash_logo =
             image::open(self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png"))?;
@@ -391,7 +419,7 @@ impl DrawBest {
                 12 + x,
                 7 + y,
                 Scale::uniform(14.0),
-                &FileUtils::get_adobe_simhei_font(),
+                &font,
                 &play_count_info,
             );
         }
@@ -401,7 +429,7 @@ impl DrawBest {
             12,
             7,
             Scale::uniform(14.0),
-            &FileUtils::get_adobe_simhei_font(),
+            &font,
             &play_count_info,
         );
 
@@ -420,7 +448,7 @@ impl DrawBest {
             31,
             28,
             Scale::uniform(15.0),
-            &FileUtils::get_adobe_simhei_font(),
+            &font,
             "Generated By",
         );
         draw_text_mut(
@@ -429,7 +457,7 @@ impl DrawBest {
             31,
             50,
             Scale::uniform(15.0),
-            &FileUtils::get_adobe_simhei_font(),
+            &font,
             "Maimai-Search",
         );
         overlay(&mut self.img, &author_board_img, 1224, 19);

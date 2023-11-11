@@ -44,13 +44,7 @@ fn test_string_to_half_width() {
 
 #[test]
 fn test_draw_best() {
-    let username = &PROFILE
-        .remote_api
-        .maimaidxprober
-        .username
-        .clone()
-        .unwrap_or("AnselYuki".to_string());
-    let resp = user_data::get_b50_data(username.as_str()).expect("TODO: panic message");
+    let resp = user_data::get_b50_data("leo88158").expect("TODO: panic message");
     let dx_charts = resp.charts.dx;
     let mut dx_best_list = BestList::new(15);
     for chart in dx_charts {
@@ -68,40 +62,28 @@ fn test_draw_best() {
 
 #[test]
 fn test_create_draw_best() {
-    let dx_best_list = BestList::new(15);
+    let mut dx_best_list = BestList::new(15);
     let mut sd_best_list = BestList::new(35);
-    sd_best_list.push(ChartInfoResponse {
-        achievements: 100.8692,
-        ds: 13.4,
+    let pandora = ChartInfoResponse {
+        achievements: 101.0,
+        ds: 15.0,
         dx_score: 1791,
-        fc: "fcp".to_string(),
-        fs: "fs".to_string(),
-        level: "12+".to_string(),
+        fc: "APp".to_string(),
+        fs: "FSDp".to_string(),
+        level: "15".to_string(),
         level_index: 3,
-        level_label: LevelLabel::Master,
+        level_label: LevelLabel::ReMaster,
         ra: 288,
         rate: ChartRate::SSSP,
-        song_id: 547,
-        title: "私の中の幻想的世界観及びその顕現を想起させたある現実での出来事に関する一考察"
-            .to_string(),
+        song_id: 834,
+        title: "PANDORA PARADOXXX".to_string(),
         song_type: "SD".to_string(),
-    });
-    sd_best_list.push(ChartInfoResponse {
-        achievements: 97.5604,
-        ds: 13.2,
-        dx_score: 2018,
-        fc: "fcp".to_string(),
-        fs: "fs".to_string(),
-        level: "13".to_string(),
-        level_index: 3,
-        level_label: LevelLabel::Master,
-        ra: 257,
-        rate: ChartRate::S,
-        song_id: 11266,
-        title: "キラメキ居残り大戦争".to_string(),
-        song_type: "DX".to_string(),
-    });
-    let mut draw_best = DrawBest::new(sd_best_list, dx_best_list, "ANSEL");
+    };
+    for _ in 0..35 {
+        sd_best_list.push(pandora.clone());
+        dx_best_list.push(pandora.clone());
+    }
+    let mut draw_best = DrawBest::new(sd_best_list, dx_best_list, "QAQ");
     draw_best.draw().expect("TODO: panic message");
 }
 
