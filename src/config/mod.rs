@@ -51,7 +51,6 @@ pub mod command {
         /// 谱面等级
         #[arg(short, long, value_enum)]
         pub level: Option<ChartLevel>,
-
         // 子命令枚举
         #[command(subcommand)]
         pub command: Option<SubCommands>,

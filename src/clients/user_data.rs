@@ -114,7 +114,7 @@ pub mod entity {
         pub song_type: String,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Clone, Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
     pub enum LevelLabel {
         Basic,
         Advanced,
@@ -231,7 +231,15 @@ pub mod entity {
 
     impl Ord for ChartInfoResponse {
         fn cmp(&self, other: &Self) -> Ordering {
-            self.ra.cmp(&other.ra)
+            self.ra
+                .cmp(&other.ra)
+                .then_with(|| self.level_label.cmp(&other.level_label))
+                .then_with(|| {
+                    self.achievements
+                        .partial_cmp(&other.achievements)
+                        .unwrap_or(Ordering::Equal)
+                })
+                .then_with(|| self.title.cmp(&other.title))
         }
     }
 
