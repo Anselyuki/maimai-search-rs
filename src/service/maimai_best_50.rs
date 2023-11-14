@@ -40,7 +40,6 @@ static HORIZONTAL_SPACING: i32 = 7;
 /// > 这个结构体不知道要不要留,先按照 [mai-bot](https://github.com/Diving-Fish/mai-bot) 的规则来
 ///
 /// 毕竟*最大头的还是PIL库的调用*
-#[derive(Debug)]
 pub struct BestList {
     data: Vec<ChartInfoResponse>,
     size: usize,
@@ -77,7 +76,7 @@ impl std::fmt::Display for BestList {
         let data_str = self
             .data
             .iter()
-            .map(|ci| format!("\t{:?}\n", ci))
+            .map(|ci| format!("\t{}\n", ci))
             .collect::<String>();
         write!(f, "[\n{}\n]", data_str)
     }
@@ -94,7 +93,6 @@ impl Index<usize> for BestList {
 /// # 绘图库实现类
 ///
 /// 这里面有一个或者多个函数要用 pyo3 进行调用
-#[derive(Debug)]
 pub struct DrawBest {
     /// B35 列表
     sd_best: BestList,

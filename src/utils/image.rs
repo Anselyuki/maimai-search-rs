@@ -9,10 +9,10 @@ use crate::utils::file::FileUtils;
 /// >
 /// > 在这里还是做一个转换,把能转换的全角字符都换成半角字符
 ///
-/// - 遍历UTF-16编码字符，并判断是否为全角字符。全角字符的范围是`\u{FF00}`到`\u{FFEF}`
-/// - 如果该字符是全角字符，则将其转换为对应的半角字符。全角字符与半角字符的 Unicode 值之间的差是`0xFEE0`
-/// - 将UTF-16编码字符重新转换为字符串
-pub fn string_to_half_width(input_string: &str) -> String {
+/// - 遍历 UTF-16 编码字符，并判断是否为全角字符。全角字符的范围是 `\u{FF00}` 到 `\u{FFEF}`
+/// - 如果该字符是全角字符，则将其转换为对应的半角字符。全角字符与半角字符的 Unicode 值之间的差是 `0xFEE0`
+/// - 将 UTF-16 编码字符重新转换为字符串
+pub(crate) fn string_to_half_width(input_string: &str) -> String {
     let mut utf16_chars: Vec<u16> = input_string.encode_utf16().collect();
     for i in 0..utf16_chars.len() {
         let char_code = utf16_chars[i];
@@ -38,7 +38,7 @@ pub fn string_to_half_width(input_string: &str) -> String {
 /// - 当你的准度超过 100.5 就只会按照 100.5 来算 Rating 了,所以打到鸟加就没有分辣
 ///
 /// 值向下取整
-pub fn compute_ra(ds: f32, achievement: f32) -> i32 {
+pub(crate) fn compute_ra(ds: f32, achievement: f32) -> i32 {
     let base_ra = match achievement {
         a if a < 50.0 => 7.0,
         a if a < 60.0 => 8.0,
@@ -59,7 +59,7 @@ pub fn compute_ra(ds: f32, achievement: f32) -> i32 {
 }
 
 /// 获得 Rating 对应的姓名牌文件名
-pub fn get_ra_pic(rating: u32) -> String {
+pub(crate) fn get_ra_pic(rating: u32) -> String {
     format!(
         "UI_CMN_DXRating_S_{}.png",
         match rating {

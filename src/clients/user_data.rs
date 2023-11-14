@@ -23,7 +23,7 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
         .body(payload.to_string());
     let response = request.send()?;
     let status = response.status();
-    let response = match status.as_u16() {
+    Ok(match status.as_u16() {
         200 => {
             let resp_text: B50Response = response.json().unwrap();
             resp_text
@@ -40,8 +40,7 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
             error!("[{}] <-- http 请求错误", status);
             exit(exitcode::NOHOST);
         }
-    };
-    Ok(response)
+    })
 }
 
 pub mod entity {
@@ -52,7 +51,7 @@ pub mod entity {
     use serde::{Deserialize, Serialize};
 
     /// 查分器返回的数据
-    #[derive(Debug, Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize)]
     pub struct B50Response {
         /// 查分器用户名
         pub username: String,
@@ -70,13 +69,13 @@ pub mod entity {
         pub user_general_data: Option<String>,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize)]
     pub struct Charts {
         pub dx: Vec<ChartInfoResponse>,
         pub sd: Vec<ChartInfoResponse>,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, PartialOrd)]
     pub struct ChartInfoResponse {
         /// 达成率
         pub achievements: f32,
@@ -91,14 +90,6 @@ pub mod entity {
         pub fs: String,
         /// 等级
         pub level: String,
-        /// 标记是第几个难度的谱面(感觉跟下面的重复了)
-        ///
-        /// - `0`: Basic
-        /// - `1`: Advanced
-        /// - `2`: Expert
-        /// - `3`: Master
-        /// - `4`: Re:Master
-        pub level_index: i32,
         /// 难度标签
         pub level_label: LevelLabel,
         /// 难度分
@@ -114,14 +105,14 @@ pub mod entity {
         pub song_type: String,
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq)]
+    #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Clone)]
     pub enum LevelLabel {
-        Basic,
-        Advanced,
-        Expert,
-        Master,
+        Basic = 0,
+        Advanced = 1,
+        Expert = 2,
+        Master = 3,
         #[serde(rename = "Re:MASTER")]
-        ReMaster,
+        ReMaster = 4,
     }
 
     impl Display for LevelLabel {
@@ -138,6 +129,7 @@ pub mod entity {
     }
 
     impl LevelLabel {
+        /// 获取难度等级对应的颜色
         pub fn label_color(&self) -> Rgba<u8> {
             match self {
                 LevelLabel::Basic => Rgba([69, 193, 36, 255]),
@@ -149,9 +141,8 @@ pub mod entity {
         }
     }
 
-    #[derive(Clone, Debug, Serialize, Deserialize)]
+    #[derive(PartialEq, PartialOrd, Serialize, Deserialize)]
     #[serde(rename_all = "lowercase")]
-    #[derive(PartialEq, PartialOrd)]
     pub enum ChartRate {
         D,
         C,
@@ -187,7 +178,7 @@ pub mod entity {
                 ChartRate::SSS => "SSS",
                 ChartRate::SSSP => "SSS+",
             };
-            write!(f, "{}", rate_str)
+            write!(f, "{}", &rate_str)
         }
     }
 
@@ -218,12 +209,6 @@ pub mod entity {
     impl PartialEq for ChartInfoResponse {
         fn eq(&self, other: &Self) -> bool {
             self.ra == other.ra
-        }
-    }
-
-    impl PartialOrd for ChartInfoResponse {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            Some(self.cmp(other))
         }
     }
 

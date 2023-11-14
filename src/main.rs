@@ -1,5 +1,6 @@
 extern crate clap;
 
+use maimai_search_lib::service::simple_log;
 use std::process::exit;
 
 use clap::Parser;
@@ -10,11 +11,9 @@ use maimai_search_lib::clients::user_data::get_b50_data;
 use maimai_search_lib::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use maimai_search_lib::config::consts::PROFILE;
 use maimai_search_lib::config::profiles::Profile;
-use maimai_search_lib::image::maimai_best_50::{BestList, DrawBest};
+use maimai_search_lib::service::maimai_best_50::{BestList, DrawBest};
+use maimai_search_lib::service::printer::PrinterHandler;
 use maimai_search_lib::service::resource;
-use maimai_search_lib::utils::printer::PrinterHandler;
-use maimai_search_lib::utils::simple_log;
-
 fn main() {
     simple_log::init().unwrap();
     let args = MaimaiSearchArgs::parse();

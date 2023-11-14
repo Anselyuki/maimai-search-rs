@@ -1,13 +1,14 @@
 use std::cmp::max;
 use std::collections::HashMap;
+use std::fmt;
 use std::fs::create_dir;
 use std::path::Path;
 use std::process::exit;
 
-use crate::clients::song_data::entity::Song;
 use log::{error, warn};
 use prettytable::{row, Cell, Row, Table};
 
+use crate::clients::song_data::entity::Song;
 use crate::config::command::ChartLevel;
 use crate::config::consts::{CONFIG_PATH, DIFFICULT_NAME, LAUNCH_PATH, PROFILE};
 use crate::service::resource::update_resource;
@@ -42,13 +43,17 @@ pub enum MarkdownFormat {
     H3,
 }
 
-impl MarkdownFormat {
-    pub fn to_string(&self) -> &str {
-        match self {
-            MarkdownFormat::H1 => "#",
-            MarkdownFormat::H2 => "##",
-            MarkdownFormat::H3 => "###",
-        }
+impl fmt::Display for MarkdownFormat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                MarkdownFormat::H1 => "#",
+                MarkdownFormat::H2 => "##",
+                MarkdownFormat::H3 => "###",
+            }
+        )
     }
 }
 
@@ -76,7 +81,7 @@ impl TableService {
             .unwrap_or(0);
 
         if let Some(chart_level) = level.clone() {
-            let cell = &DIFFICULT_NAME[chart_level.get_index()];
+            let cell = &DIFFICULT_NAME[chart_level as usize];
             header.add_cell(cell.clone());
         } else {
             for difficult in &DIFFICULT_NAME[..chart_count] {
@@ -111,7 +116,7 @@ impl TableService {
 
             // 指定难度的谱面
             if let Some(chart_level) = level.clone() {
-                let index = chart_level.get_index();
+                let index = chart_level as usize;
                 table_data.add_cell(Cell::new(
                     Self::get_level_str(&song.ds[index], &song.level[index])
                         .unwrap()

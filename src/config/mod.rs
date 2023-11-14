@@ -59,23 +59,11 @@ pub mod command {
     /// 谱面等级
     #[derive(ValueEnum, Clone, Debug)]
     pub enum ChartLevel {
-        BSC,
-        ADV,
-        EXP,
-        MST,
-        REM,
-    }
-
-    impl ChartLevel {
-        pub fn get_index(&self) -> usize {
-            match self {
-                ChartLevel::BSC => 0,
-                ChartLevel::ADV => 1,
-                ChartLevel::EXP => 2,
-                ChartLevel::MST => 3,
-                ChartLevel::REM => 4,
-            }
-        }
+        BSC = 0,
+        ADV = 1,
+        EXP = 2,
+        MST = 3,
+        REM = 4,
     }
 
     #[derive(Subcommand, Debug)]

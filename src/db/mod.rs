@@ -1,4 +1,4 @@
-pub mod database {
+pub(crate) mod database {
     use std::fs;
     use std::process::exit;
 
@@ -45,14 +45,6 @@ pub mod database {
         /// > 解耦合主要是为了方便之后重建索引的步骤
         ///
         /// 这个方法返回的索引注册了 Jieba 分词器
-        ///
-        /// ```rust
-        /// let tokenizer_manager = index.tokenizers();
-        /// let tokenizer = tokenizer_manager.get("jieba");
-        /// ```
-        ///
-        /// 可以使用如上的方式获取注册的 tokenizer
-        ///
         fn get_index() -> Index {
             let tokenizer = tantivy_jieba::JiebaTokenizer {};
             let index_path = &CONFIG_PATH.join("data");
@@ -83,8 +75,12 @@ pub mod database {
                     .template("{bar:50.green/white} 歌曲数量: {pos}/{len} [{elapsed_precise}]")
                     .unwrap(),
             );
-
-            Self::re_create_index();
+            // 删除原有的索引重建
+            if CONFIG_PATH.join("data").exists() {
+                info!("删除原有的索引");
+                FileUtils::delete_folder_contents(&CONFIG_PATH.join("data")).unwrap();
+                fs::remove_dir(&CONFIG_PATH.join("data")).unwrap();
+            }
             let mut writer = Self::get_writer();
             for song in songs {
                 let document = match song.document() {
@@ -103,15 +99,6 @@ pub mod database {
                 error!("提交索引时出现错误: {:?}", error);
             }
             progress_bar.finish();
-        }
-
-        /// 删除原有的索引重新建立
-        fn re_create_index() {
-            if CONFIG_PATH.join("data").exists() {
-                info!("删除原有的索引");
-                FileUtils::delete_folder_contents(&CONFIG_PATH.join("data")).unwrap();
-                fs::remove_dir(&CONFIG_PATH.join("data")).unwrap();
-            }
         }
 
         /// 按照传入的 ID 查询歌曲,精确查询

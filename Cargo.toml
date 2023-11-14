@@ -5,7 +5,7 @@ path = "src/lib.rs"
 [package]
 authors = ["AnselYuki"]
 name = "maimai-search"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 repository = "https://github.com/Anselyuki/maimai-search-rs"
 

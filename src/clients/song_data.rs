@@ -44,6 +44,7 @@ pub fn search_songs_by_title(param: &str, count: usize) -> Vec<Song> {
 }
 
 pub mod entity {
+    use std::fmt;
     use std::io::Error;
     use std::process::exit;
 
@@ -145,20 +146,23 @@ pub mod entity {
         BasicInfo,
     }
 
-    impl SongField {
-        /// 各个字段对应在 Tantivy Schema 里的 Field 名称
-        pub fn to_string(&self) -> &str {
-            match self {
-                SongField::Id => "id",
-                SongField::Keyword => "keyword",
-                SongField::Title => "title",
-                SongField::SongType => "song_type",
-                SongField::Ds => "ds",
-                SongField::Level => "level",
-                SongField::Cids => "cids",
-                SongField::Charts => "charts",
-                SongField::BasicInfo => "basic_info",
-            }
+    impl fmt::Display for SongField {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(
+                f,
+                "{}",
+                match self {
+                    SongField::Id => "id",
+                    SongField::Keyword => "keyword",
+                    SongField::Title => "title",
+                    SongField::SongType => "song_type",
+                    SongField::Ds => "ds",
+                    SongField::Level => "level",
+                    SongField::Cids => "cids",
+                    SongField::Charts => "charts",
+                    SongField::BasicInfo => "basic_info",
+                }
+            )
         }
     }
 
@@ -202,7 +206,7 @@ pub mod entity {
 
         /// 单独获取字段(静态方法)
         pub fn field(song_field: SongField) -> Field {
-            match SONG_SCHEMA.get_field(song_field.to_string()) {
+            match SONG_SCHEMA.get_field(&*song_field.to_string()) {
                 Ok(field) => field,
                 Err(error) => {
                     error!("获取 Field 失败\n[Cause]:{:?}", error);
