@@ -234,7 +234,6 @@ pub mod entity {
         }
     }
 
-
     impl Display for ChartInfoResponse {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(

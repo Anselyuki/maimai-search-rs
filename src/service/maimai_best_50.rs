@@ -14,7 +14,7 @@ use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
 use crate::utils::file::FileUtils;
 use crate::utils::image::{change_column_width, compute_ra, get_ra_pic, string_to_half_width};
 
-static OFFSET: [(i32, i32); 8] = [
+const OFFSET: [(i32, i32); 8] = [
     (-1, -1),
     (1, -1),
     (0, -1),
@@ -24,11 +24,11 @@ static OFFSET: [(i32, i32); 8] = [
     (-1, 0),
     (1, 0),
 ];
-static COLUMNS_RATING: [i64; 5] = [84, 98, 113, 128, 143];
-static ITEM_WIDTH: i32 = 131;
-static ITEM_HEIGHT: i32 = 88;
-static VERTICAL_SPACING: i32 = 8;
-static HORIZONTAL_SPACING: i32 = 7;
+const COLUMNS_RATING: [i64; 5] = [84, 98, 113, 128, 143];
+const ITEM_WIDTH: i32 = 131;
+const ITEM_HEIGHT: i32 = 88;
+const VERTICAL_SPACING: i32 = 8;
+const HORIZONTAL_SPACING: i32 = 7;
 
 /// # 自排序 Best 列表
 ///
@@ -47,7 +47,10 @@ pub struct BestList {
 
 impl BestList {
     pub fn new(size: usize) -> Self {
-        Self { data: vec![], size }
+        Self {
+            data: Vec::with_capacity(size),
+            size,
+        }
     }
 
     pub fn push(&mut self, elem: ChartInfoResponse) {
@@ -55,30 +58,11 @@ impl BestList {
             return;
         }
         self.data.push(elem);
-        self.data.sort();
-        self.data.reverse();
-        while self.data.len() > self.size {
-            self.data.pop();
-        }
+        self.data.sort_unstable_by(|a, b| b.cmp(a));
+        self.data.truncate(self.size);
     }
-
-    pub fn pop(&mut self) -> Option<ChartInfoResponse> {
-        self.data.pop()
-    }
-
     pub fn len(&self) -> usize {
         self.data.len()
-    }
-}
-
-impl std::fmt::Display for BestList {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let data_str = self
-            .data
-            .iter()
-            .map(|ci| format!("\t{}\n", ci))
-            .collect::<String>();
-        write!(f, "[\n{}\n]", data_str)
     }
 }
 
@@ -405,7 +389,7 @@ impl DrawBest {
             self.sd_rating, self.dx_rating, self.player_rating
         );
         // 硬核阴影绘制
-        for (x, y) in OFFSET {
+        OFFSET.iter().for_each(|(x, y)| {
             draw_text_mut(
                 &mut shougou_img,
                 Rgba([50, 50, 50, 255]),
@@ -415,7 +399,7 @@ impl DrawBest {
                 &font,
                 &play_count_info,
             );
-        }
+        });
         draw_text_mut(
             &mut shougou_img,
             Rgba([255, 255, 255, 255]),
