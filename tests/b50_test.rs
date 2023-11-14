@@ -6,7 +6,7 @@ use maimai_search_lib::clients::user_data;
 use maimai_search_lib::clients::user_data::entity::{ChartInfoResponse, ChartRate, LevelLabel};
 use maimai_search_lib::config::consts::{CONFIG_PATH, PROFILE};
 use maimai_search_lib::image::maimai_best_50::{BestList, DrawBest};
-use maimai_search_lib::image::utils::{compute_ra, get_ra_pic, string_to_half_width};
+use maimai_search_lib::utils::image::{compute_ra, get_ra_pic, string_to_half_width};
 
 #[test]
 fn get_b50_data() {

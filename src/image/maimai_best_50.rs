@@ -1,8 +1,8 @@
 use std::ops::Index;
 use std::path::PathBuf;
 
+use image::imageops::{overlay, FilterType};
 use image::{DynamicImage, ImageError, ImageFormat, Pixel, Rgba, RgbaImage};
-use image::imageops::{FilterType, overlay};
 use imageproc::drawing::{draw_filled_rect_mut, draw_polygon_mut, draw_text_mut};
 use imageproc::map::map_colors_mut;
 use imageproc::point::Point;
@@ -11,8 +11,8 @@ use rusttype::Scale;
 
 use crate::clients::user_data::entity::ChartInfoResponse;
 use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
-use crate::image::utils::{change_column_width, compute_ra, get_ra_pic, string_to_half_width};
 use crate::utils::file::FileUtils;
+use crate::utils::image::{change_column_width, compute_ra, get_ra_pic, string_to_half_width};
 
 static OFFSET: [(i32, i32); 8] = [
     (-1, -1),
@@ -27,6 +27,8 @@ static OFFSET: [(i32, i32); 8] = [
 static COLUMNS_RATING: [i64; 5] = [84, 98, 113, 128, 143];
 static ITEM_WIDTH: i32 = 131;
 static ITEM_HEIGHT: i32 = 88;
+static VERTICAL_SPACING: i32 = 8;
+static HORIZONTAL_SPACING: i32 = 7;
 
 /// # 自排序 Best 列表
 ///
@@ -170,34 +172,29 @@ impl DrawBest {
     fn draw_best_list(&mut self) -> Result<DynamicImage, ImageError> {
         // 绘制 b15 存在的图片列
         for num in 0..self.dx_best.len() {
-            let column = 75i64 + (ITEM_WIDTH * ((num % 3) + 7) as i32) as i64 + (7 * (num % 3) as i32) as i64;
-            let row = 120i64 + (ITEM_HEIGHT * (num / 3) as i32) as i64 + (8 * (num / 3) as i32) as i64;
+            let column = 75i64
+                + (ITEM_WIDTH * (num % 3 + 7) as i32 + HORIZONTAL_SPACING * (num % 3) as i32)
+                    as i64;
+            let row = 120i64
+                + (ITEM_HEIGHT * (num / 3) as i32 + VERTICAL_SPACING * (num / 3) as i32) as i64;
             // 3 列一行排列的 B15
             let cover = self.draw_best_item(num, true)?;
             // 绘制 item 的阴影,并把绘制完的 item 覆盖到最终输出里
             self.img = self.draw_item_shadow(column, row);
-            overlay(
-                &mut self.img,
-                &cover,
-                column,
-                row,
-            );
+            overlay(&mut self.img, &cover, column, row);
         }
 
         // 绘制 b35 存在的图片列
         for num in 0..self.sd_best.len() {
-            let column = 6i64 + (ITEM_WIDTH * (num % 7) as i32) as i64 + (7 * (num % 7) as i32) as i64;
-            let row = 120i64 + (ITEM_HEIGHT * (num / 7) as i32) as i64 + (8 * (num / 7) as i32) as i64;
+            let column = 6i64
+                + (ITEM_WIDTH * (num % 7) as i32 + HORIZONTAL_SPACING * (num % 7) as i32) as i64;
+            let row = 120i64
+                + (ITEM_HEIGHT * (num / 7) as i32 + VERTICAL_SPACING * (num / 7) as i32) as i64;
             // 7 列一行排列的 B35
             let cover = self.draw_best_item(num, false)?;
             // 绘制 item 的阴影,并把绘制完的 item 覆盖到最终输出里
             self.img = self.draw_item_shadow(column, row);
-            overlay(
-                &mut self.img,
-                &cover,
-                column,
-                row,
-            );
+            overlay(&mut self.img, &cover, column, row);
         }
 
         let mut blank_cover = image::open(self.cover_dir.join("01000.png"))?;
@@ -212,27 +209,22 @@ impl DrawBest {
         blank_cover = blank_cover.blur(3.0);
         // 这里处理不完整的 b15 列表占位图
         for num in self.dx_best.len()..self.dx_best.size {
-            let column = 75i64 + (ITEM_WIDTH * ((num % 3) + 7) as i32) as i64 + (7 * (num % 3) as i32) as i64;
-            let row = 120i64 + (ITEM_HEIGHT * (num / 3) as i32) as i64 + (8 * (num / 3) as i32) as i64;
+            let column = 75i64
+                + (ITEM_WIDTH * (num % 3 + 7) as i32 + HORIZONTAL_SPACING * (num % 3) as i32)
+                    as i64;
+            let row = 120i64
+                + (ITEM_HEIGHT * (num / 3) as i32 + VERTICAL_SPACING * (num / 3) as i32) as i64;
             self.img = self.draw_item_shadow(column, row);
-            overlay(
-                &mut self.img,
-                &blank_cover,
-                column,
-                row,
-            );
+            overlay(&mut self.img, &blank_cover, column, row);
         }
         // 这里处理不完整的 b35 列表占位图
         for num in self.sd_best.len()..self.sd_best.size {
-            let column: i64 = 6i64 + (ITEM_WIDTH * (num % 7) as i32 + 7 * (num % 7) as i32) as i64;
-            let row: i64 = 120i64 + (ITEM_HEIGHT * (num / 7) as i32 + 8 * (num / 7) as i32) as i64;
+            let column: i64 = 6i64
+                + (ITEM_WIDTH * (num % 7) as i32 + HORIZONTAL_SPACING * (num % 7) as i32) as i64;
+            let row: i64 = 120i64
+                + (ITEM_HEIGHT * (num / 7) as i32 + VERTICAL_SPACING * (num / 7) as i32) as i64;
             self.img = self.draw_item_shadow(column, row);
-            overlay(
-                &mut self.img,
-                &blank_cover,
-                column,
-                row,
-            );
+            overlay(&mut self.img, &blank_cover, column, row);
         }
         Ok(self.img.clone())
     }
@@ -281,7 +273,6 @@ impl DrawBest {
         // 在谱面右上角绘制等级定数小三角
         draw_polygon_mut(&mut cover, &level_triangle, chart.level_label.label_color());
 
-        let title = change_column_width(&*chart.title, ITEM_WIDTH);
         // 绘制谱面标题
         draw_text_mut(
             &mut cover,
@@ -290,7 +281,7 @@ impl DrawBest {
             8,
             Scale::uniform(16.0),
             &font,
-            title.as_str(),
+            change_column_width(&*chart.title, ITEM_WIDTH).as_str(),
         );
 
         // 绘制达成率
@@ -345,7 +336,7 @@ impl DrawBest {
                 chart.ds,
                 compute_ra(chart.ds, chart.achievements)
             )
-                .as_str(),
+            .as_str(),
         );
         draw_text_mut(
             &mut cover,
