@@ -75,7 +75,7 @@ pub mod entity {
         pub sd: Vec<ChartInfoResponse>,
     }
 
-    #[derive(Serialize, Deserialize, PartialOrd)]
+    #[derive(Serialize, Deserialize)]
     pub struct ChartInfoResponse {
         /// 达成率
         pub achievements: f32,
@@ -212,6 +212,12 @@ pub mod entity {
         }
     }
 
+    impl PartialOrd for ChartInfoResponse {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
     impl Eq for ChartInfoResponse {}
 
     impl Ord for ChartInfoResponse {
@@ -227,6 +233,7 @@ pub mod entity {
                 .then_with(|| self.title.cmp(&other.title))
         }
     }
+
 
     impl Display for ChartInfoResponse {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
