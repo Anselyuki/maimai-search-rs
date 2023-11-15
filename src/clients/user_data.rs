@@ -44,6 +44,7 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
 }
 
 pub mod entity {
+    use clap::ValueEnum;
     use std::cmp::Ordering;
     use std::fmt::Display;
 
@@ -105,7 +106,40 @@ pub mod entity {
         pub song_type: String,
     }
 
-    #[derive(Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Clone)]
+    /// # 计算单首歌曲的 Rating 值
+    ///
+    /// 计算方法比较简单
+    ///
+    /// ```text
+    /// 定数 * MIN(完成率,100.5) /100 * 基础 Rating
+    /// ```
+    ///
+    /// - 基础 rating 是一组固定值,类似一个跳变函数,直接看代码
+    /// - 当你的准度超过 100.5 就只会按照 100.5 来算 Rating 了,所以打到鸟加就没有分辣
+    ///
+    /// 值向下取整
+    #[inline]
+    pub fn compute_ra(ds: f32, achievement: f32) -> i32 {
+        let base_ra = match achievement {
+            a if a < 50.0 => 7.0,
+            a if a < 60.0 => 8.0,
+            a if a < 70.0 => 9.6,
+            a if a < 75.0 => 11.2,
+            a if a < 80.0 => 12.0,
+            a if a < 90.0 => 13.6,
+            a if a < 94.0 => 15.2,
+            a if a < 97.0 => 16.8,
+            a if a < 98.0 => 20.0,
+            a if a < 99.0 => 20.3,
+            a if a < 99.5 => 20.8,
+            a if a < 100.0 => 21.1,
+            a if a < 100.5 => 21.6,
+            _ => 22.4,
+        };
+        return (ds * (f32::min(achievement, 100.5f32) / 100.0) * base_ra) as i32;
+    }
+
+    #[derive(ValueEnum, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Clone)]
     pub enum LevelLabel {
         Basic = 0,
         Advanced = 1,
@@ -160,28 +194,6 @@ pub mod entity {
         SSSP,
     }
 
-    impl Display for ChartRate {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let rate_str = match self {
-                ChartRate::D => "D",
-                ChartRate::C => "C",
-                ChartRate::B => "B",
-                ChartRate::BB => "BB",
-                ChartRate::BBB => "BBB",
-                ChartRate::A => "A",
-                ChartRate::AA => "AA",
-                ChartRate::AAA => "AAA",
-                ChartRate::S => "S",
-                ChartRate::SP => "S+",
-                ChartRate::SS => "SS",
-                ChartRate::SSP => "SS+",
-                ChartRate::SSS => "SSS",
-                ChartRate::SSSP => "SSS+",
-            };
-            write!(f, "{}", &rate_str)
-        }
-    }
-
     impl ChartRate {
         pub fn get_file_name(&self) -> String {
             format!(
@@ -231,21 +243,6 @@ pub mod entity {
                         .unwrap_or(Ordering::Equal)
                 })
                 .then_with(|| self.title.cmp(&other.title))
-        }
-    }
-
-    impl Display for ChartInfoResponse {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(
-                f,
-                "[{} {}][{}] {}\n",
-                self.level_label, self.level, self.song_type, self.title,
-            )?;
-            write!(
-                f,
-                "[{}][{}] Achievements: {:.4}%, DS: {:.1}, RA: {}, Rate: {} ",
-                self.fc, self.fs, self.achievements, self.ds, self.ra, self.rate,
-            )
         }
     }
 }

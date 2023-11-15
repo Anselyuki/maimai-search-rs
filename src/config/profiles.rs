@@ -6,7 +6,7 @@ use log::{error, info, warn};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::config::consts::CONFIG_PATH;
+use crate::config::consts::{CONFIG_PATH, PROFILE};
 
 /// 配置文件解析结果
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -121,6 +121,9 @@ impl Profile {
         };
         serde_yaml::from_str(&yaml_value)
             .unwrap_or_else(|error| Self::error_handler(error.to_string()))
+    }
+    pub fn get_username() -> Option<String> {
+        PROFILE.remote_api.maimaidxprober.username.clone()
     }
 
     /// 处理失败处理,返回默认配置文件

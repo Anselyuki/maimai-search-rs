@@ -12,7 +12,8 @@ pub(crate) mod database {
     use zhconv::{zhconv, Variant};
 
     use crate::config::consts::{CONFIG_PATH, SONG_SCHEMA};
-    use crate::utils::file::FileUtils;
+    use crate::utils::file;
+    use crate::utils::file::delete_folder_contents;
 
     /// 新版本使用 Tantivy 作为数据源
     pub struct MaimaiDB;
@@ -50,7 +51,7 @@ pub(crate) mod database {
             let index_path = &CONFIG_PATH.join("data");
             let result = if !index_path.exists() {
                 // 如果这个目录不存在 Tantivy 就会报错,所以需要手动创建,文件夹里有没有索引倒是次要的
-                FileUtils::create_dir(index_path);
+                file::create_dir(index_path);
                 Index::create_in_dir(index_path, SONG_SCHEMA.clone())
             } else {
                 Index::open_in_dir(index_path)
@@ -78,7 +79,7 @@ pub(crate) mod database {
             // 删除原有的索引重建
             if CONFIG_PATH.join("data").exists() {
                 info!("删除原有的索引");
-                FileUtils::delete_folder_contents(&CONFIG_PATH.join("data")).unwrap();
+                delete_folder_contents(&CONFIG_PATH.join("data")).unwrap();
                 fs::remove_dir(&CONFIG_PATH.join("data")).unwrap();
             }
             let mut writer = Self::get_writer();

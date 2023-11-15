@@ -9,10 +9,10 @@ use log::{error, warn};
 use prettytable::{row, Cell, Row, Table};
 
 use crate::clients::song_data::entity::Song;
-use crate::config::command::ChartLevel;
+use crate::clients::user_data::entity::LevelLabel;
 use crate::config::consts::{CONFIG_PATH, DIFFICULT_NAME, LAUNCH_PATH, PROFILE};
 use crate::service::resource::update_resource;
-use crate::utils::file::FileUtils;
+use crate::utils::file::{copy_file, remove_extension};
 
 /// 歌曲列表
 ///
@@ -65,7 +65,7 @@ impl TableService {
         songs: Vec<Song>,
         pic_colum: bool,
         output: Option<String>,
-        level: Option<ChartLevel>,
+        level: Option<LevelLabel>,
     ) -> Vec<SongTable> {
         let mut table = Table::new();
         let mut header = row!["ID", "乐曲标题", "分区", "BPM"];
@@ -227,7 +227,7 @@ impl TableService {
         }
 
         // 如果开启了本地化图片并且输出有值
-        let output = FileUtils::remove_extension(output.unwrap().as_str());
+        let output = remove_extension(output.unwrap().as_str());
         // 是否开启绝对路径
         let mut absolute = &PROFILE.markdown.picture.local.absolute;
         let res_dir = match &PROFILE.markdown.picture.local.path {
@@ -256,7 +256,7 @@ impl TableService {
             update_resource(false);
         }
 
-        if let Err(error) = FileUtils::copy_file(source_path, res_dir.join(&filename)) {
+        if let Err(error) = copy_file(source_path, res_dir.join(&filename)) {
             error!("拷贝资源文件失败!使用远程地址\n[Cause]:{:?}", error);
             return format!(
                 "![{}]({}{:0>5}.png)",

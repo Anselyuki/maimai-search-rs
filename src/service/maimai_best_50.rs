@@ -9,10 +9,10 @@ use imageproc::point::Point;
 use imageproc::rect::Rect;
 use rusttype::Scale;
 
-use crate::clients::user_data::entity::ChartInfoResponse;
+use crate::clients::user_data::entity::{compute_ra, ChartInfoResponse};
 use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
-use crate::utils::file::FileUtils;
-use crate::utils::image::{change_column_width, compute_ra, get_ra_pic, string_to_half_width};
+use crate::utils::file::{get_adobe_simhei_font, get_msyh_font};
+use crate::utils::image::{change_column_width, get_ra_pic, string_to_half_width};
 
 const OFFSET: [(i32, i32); 8] = [
     (-1, -1),
@@ -224,7 +224,7 @@ impl DrawBest {
             Point::new(ITEM_WIDTH - 27, 0),
             Point::new(ITEM_WIDTH, 27),
         ];
-        let font = FileUtils::get_adobe_simhei_font();
+        let font = get_adobe_simhei_font();
 
         // 获取歌曲封面
         let mut cover = match image::open(self.cover_dir.join(format!("{:0>5}.png", chart.song_id)))
@@ -345,7 +345,7 @@ impl DrawBest {
     }
 
     pub fn draw(&mut self) -> Result<(), ImageError> {
-        let font = FileUtils::get_adobe_simhei_font();
+        let font = get_adobe_simhei_font();
         // Splash LOGO
         let mut splash_logo =
             image::open(self.pic_dir.join("UI_CMN_TabTitle_MaimaiTitle_Ver214.png"))?;
@@ -369,7 +369,7 @@ impl DrawBest {
             10,
             4,
             Scale::uniform(32.0),
-            &FileUtils::get_msyh_font(),
+            &get_msyh_font(),
             &self
                 .username
                 .chars()
@@ -455,7 +455,7 @@ impl DrawBest {
             65,
         );
 
-        let path = LAUNCH_PATH.join("b50.png");
+        let path = LAUNCH_PATH.join(format!("{}-b50.png", self.username));
         self.img.save_with_format(&path, ImageFormat::Png)?;
         open::that(&path).unwrap();
         Ok(())

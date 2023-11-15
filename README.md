@@ -8,7 +8,11 @@
 
 ## 注意事项
 
-项目使用了 SQLite 数据库，在 MacOS 与 Linux/UNIX 平台上遵守 XDG 规范，数据库与配置文件均放置于 `~/.config/maimai-search`
+项目使用了 Tantivy 搜索引擎
+
+> Tantivy是Rust实现的本地搜索库，功能对标 lucene，该库的优点在于纯 Rust 实现，性能高(lucene 的2-3倍)，资源占用低，社区活跃。
+
+在 MacOS 与 Linux/UNIX 平台上遵守 XDG 规范，数据库与配置文件均放置于 `~/.config/maimai-search`
 路径下
 
 可以选择把本程序放置于 PATH 下，或者在使用时指定路径
@@ -25,20 +29,17 @@ maimai-search update
 
 通过添加`--md`参数可以将歌曲信息输出为 Markdown 表格
 
+### B50 图片绘制
+
+这部分复刻了 [mai-bot](https://github.com/Diving-Fish/mai-bot) 的图片绘制功能,将 Python 的`Pillow`库替换为了 Rust
+的`images`库与`imageproc`库,以此实现了绘制性能的提升
+
+![B50](docs/b50_simple.png)
+
+> 生成这张图片的示例代码在`examples/b50.rs`中
+
 ## TODO:
 
 ### 推分 list
 
 添加推分 list 功能，可以将自己的推分列表导入到数据库中
-
-### 文件尾部追加表格
-
-add功能 在文件尾部添加表格
-
-### md 命令替换
-
-直接把文件内的bash行当成命令执行，然后把结果替换到文件中
-
-```bash
-maimai-search add
-```

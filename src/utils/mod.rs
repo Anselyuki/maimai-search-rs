@@ -1,2 +1,2 @@
 pub mod file;
-pub(crate) mod image;
+pub mod image;

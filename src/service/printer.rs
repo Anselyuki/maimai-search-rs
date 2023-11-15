@@ -1,3 +1,4 @@
+use crate::utils::file::add_md_extension;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::process::exit;
@@ -8,10 +9,9 @@ use log::{error, info, warn};
 use prettytable::format::consts::FORMAT_BOX_CHARS;
 
 use crate::clients::song_data::entity::Song;
-use crate::config::command::ChartLevel;
+use crate::clients::user_data::entity::LevelLabel;
 use crate::config::consts::{MARKDOWN_TABLE_STYLE, PROFILE};
 use crate::service::table::{SongTable, TableService};
-use crate::utils::file::FileUtils;
 
 pub struct PrinterHandler;
 
@@ -21,7 +21,7 @@ struct FilePrinter;
 
 impl PrinterHandler {
     /// Console 输出处理器
-    pub fn console_handler(songs: Vec<Song>, detail: bool, level: Option<ChartLevel>) {
+    pub fn console_handler(songs: Vec<Song>, detail: bool, level: Option<LevelLabel>) {
         let table_vec = match detail {
             true => TableService::get_songs_detail(
                 songs,
@@ -44,7 +44,7 @@ impl PrinterHandler {
         detail: bool,
         output: Option<String>,
         add: Option<String>,
-        level: Option<ChartLevel>,
+        level: Option<LevelLabel>,
     ) {
         // 输出到文件的都添加图片列,输出到 Console 的根据配置文件决定
         let pic_colum = match (
@@ -107,7 +107,7 @@ impl FilePrinter {
     ///
     /// 这个模式下会覆盖之前可能存在的文件,用新的内容覆盖它
     fn write_markdown_file(filename: String, song_tables: Vec<SongTable>) {
-        let path = FileUtils::add_md_extension(filename);
+        let path = add_md_extension(filename);
         // 创建文件,文件不存在会创建文件
         let mut file = match File::create(&path) {
             Ok(file) => file,
@@ -136,7 +136,7 @@ impl FilePrinter {
     /// - 不会再输出表格标题
     /// - 不会再输出版权信息
     pub fn addition_file(filename: String, song_tables: Vec<SongTable>) {
-        let path = FileUtils::add_md_extension(filename);
+        let path = add_md_extension(filename);
         // 创建文件,文件不存在会创建文件
         let mut file = match OpenOptions::new().append(true).open(&path) {
             Ok(file) => file,

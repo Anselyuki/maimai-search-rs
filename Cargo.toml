@@ -42,11 +42,10 @@ tantivy-jieba = "0.10.0"
 zhconv = "0.3.0"
 
 # 图片处理
-image="0.24.7"
-imageproc="0.23.0"
-rusttype="0.9.3"
-unicode-width="0.1.11"
-unicode-segmentation="1.10.1"
+image = "0.24.7"
+imageproc = "0.23.0"
+rusttype = "0.9.3"
+unicode-segmentation = "1.10.1"
 
 [dev-dependencies]
 # 单元测试
@@ -58,3 +57,7 @@ criterion = "0.3.6"
 [[bench]]
 name = "index_benchmark"
 harness = false
+
+[[example]]
+name = "b50生成"
+path = "examples/b50.rs"

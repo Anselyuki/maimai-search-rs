@@ -1,15 +1,13 @@
 extern crate clap;
 
-use maimai_search_lib::service::simple_log;
 use std::process::exit;
 
 use clap::Parser;
-use log::error;
+use log::{error, info};
 
+use crate::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
 use maimai_search_lib::clients::song_data;
 use maimai_search_lib::clients::user_data::get_b50_data;
-use maimai_search_lib::config::command::{MaimaiSearchArgs, MarkdownSubCommands, SubCommands};
-use maimai_search_lib::config::consts::PROFILE;
 use maimai_search_lib::config::profiles::Profile;
 use maimai_search_lib::service::maimai_best_50::{BestList, DrawBest};
 use maimai_search_lib::service::printer::PrinterHandler;
@@ -90,7 +88,7 @@ fn main() {
         Some(SubCommands::B50 { username }) => {
             let username = match username {
                 None => {
-                    match PROFILE.remote_api.maimaidxprober.username.clone() {
+                    match Profile::get_username() {
                         Some(username) => username,
                         None => {
                             error!("未指定用户名,请在配置文件中指定用户名或者使用 --username 指定用户名");
@@ -107,6 +105,7 @@ fn main() {
                     exit(exitcode::NOHOST);
                 }
             };
+            info!("用户[{}]的成绩信息已载入,开始绘制", &resp.nickname);
             let dx_charts = resp.charts.dx;
             let mut dx_best_list = BestList::new(15);
             for chart in dx_charts {
@@ -133,4 +132,145 @@ fn main() {
 fn error_handler() {
     error!("参数错误,请使用 --help 或者 -h 查看详情");
     exit(exitcode::USAGE)
+}
+
+mod simple_log {
+    use colored::Colorize;
+    use log::{Level, Metadata, Record};
+    use log::{LevelFilter, SetLoggerError};
+
+    static LOGGER: SimpleLogger = SimpleLogger;
+
+    struct SimpleLogger;
+
+    impl log::Log for SimpleLogger {
+        fn enabled(&self, metadata: &Metadata) -> bool {
+            return metadata.level() <= Level::Info && metadata.target().starts_with("maimai");
+        }
+        fn log(&self, record: &Record) {
+            if self.enabled(record.metadata()) {
+                let args = record.args();
+                match record.level() {
+                    Level::Error => {
+                        eprintln!("{}{} {}", "error".red().bold(), ":".bold(), args);
+                    }
+                    Level::Warn => {
+                        println!("{}{} {}", "warning".yellow().bold(), ":".bold(), args);
+                    }
+                    Level::Info => {
+                        println!("{}{} {}", "info".green().bold(), ":".bold(), args);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        fn flush(&self) {}
+    }
+
+    pub fn init() -> Result<(), SetLoggerError> {
+        log::set_logger(&LOGGER).map(|()| log::set_max_level(LevelFilter::Info))
+    }
+}
+
+mod command {
+    use clap::{Parser, Subcommand};
+    use maimai_search_lib::clients::user_data::entity::LevelLabel;
+
+    /// GitHub Repository : [https://github.com/Anselyuki/maimai-search-rs]
+    #[derive(Parser)]
+    #[command(name = "maimai-search", bin_name = "maimai-search")]
+    #[command(author, about, version, next_line_help = false)]
+    pub struct MaimaiSearchArgs {
+        /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
+        pub name: Option<String>,
+        /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
+        #[arg(short, long, default_value = "5")]
+        pub count: usize,
+        /// 开启详情查询
+        #[arg(short, long)]
+        pub detail: bool,
+        /// 谱面等级
+        #[arg(short, long, value_enum)]
+        pub level: Option<LevelLabel>,
+        // 子命令枚举
+        #[command(subcommand)]
+        pub command: Option<SubCommands>,
+    }
+
+    #[derive(Subcommand)]
+    pub enum SubCommands {
+        ///  使用 ID 进行检索，如：maimai-search id 11571 11524
+        Id {
+            /// 检索 ID ,支持多个 ID 检索
+            ids: Vec<usize>,
+            /// 谱面等级
+            #[arg(short, long, value_enum)]
+            level: Option<LevelLabel>,
+            /// 开启详情查询
+            #[arg(short, long)]
+            detail: bool,
+        },
+        /// 使用 markdown 格式输出
+        Md {
+            #[command(subcommand)]
+            command: Option<MarkdownSubCommands>,
+            /// 检索信息,如果打不出片假名没有关系,可以试试只把中文打进去(君の日本语本当上手)
+            name: Option<String>,
+            /// 模糊查询的匹配数量(由于实现比较简陋,往后的匹配结果可能会过于离谱)
+            #[arg(short, long, default_value = "5")]
+            count: usize,
+            /// 开启详情查询
+            #[arg(short, long)]
+            detail: bool,
+            /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
+            #[arg(short, long, value_name = "MARKDOWN_FILE_NAME")]
+            output: Option<String>,
+            /// 以追加方式添加到 markdown 文件中
+            #[arg(short, long)]
+            add: Option<String>,
+            /// 谱面等级
+            #[arg(short, long, value_enum)]
+            level: Option<LevelLabel>,
+        },
+        /// 更新谱面信息数据库
+        Update {},
+        /// 更新资源文件
+        Resource {
+            /// 强制更新资源文件
+            #[arg(short, long)]
+            force: bool,
+        },
+        /// 配置文件管理,详情请运行 maimai-search config --help
+        Config {
+            /// 在配置文件夹内创建默认配置文件
+            #[arg(short, long)]
+            default: bool,
+        },
+        /// 生成 B50 图片
+        B50 {
+            /// 用户名,可选参数,如果不填写则使用配置文件中的用户名
+            username: Option<String>,
+        },
+    }
+
+    /// 使用 markdown 格式输出
+    #[derive(Subcommand)]
+    pub enum MarkdownSubCommands {
+        Id {
+            /// 检索 ID ,支持多个 ID 检索
+            ids: Vec<usize>,
+            /// 指定 markdown 输出的文件名称(路径使用当前程序执行的路径)
+            #[arg(short, long, value_name = "MARKDOWN_FILE_NAME")]
+            output: Option<String>,
+            /// 开启详情查询
+            #[arg(short, long)]
+            detail: bool,
+            /// 以追加方式添加到 markdown 文件中
+            #[arg(short, long)]
+            add: Option<String>,
+            /// 谱面等级
+            #[arg(short, long, value_enum)]
+            level: Option<LevelLabel>,
+        },
+    }
 }
