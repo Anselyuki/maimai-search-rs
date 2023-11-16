@@ -150,7 +150,8 @@ impl TableService {
         let mut song_map: HashMap<&str, Vec<&Song>> = HashMap::new();
         // 将 DX 谱和标准谱合在一起
         for song in songs.iter() {
-            song_map.entry(&song.title)
+            song_map
+                .entry(&song.title)
                 .or_insert_with(Vec::new)
                 .push(song);
         }
