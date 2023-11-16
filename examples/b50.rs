@@ -84,11 +84,11 @@ fn create_chart_info_responses(song_ids: &[(i32, LevelLabel)], size: usize) -> B
                 fc: "APp".to_string(),
                 fs: "FSDp".to_string(),
                 level: (song.level.last().unwrap()).parse().unwrap(),
-                level_label: level_label.clone(),
+                level_label: *level_label,
                 ra: compute_ra(ds, 101.0),
                 rate: ChartRate::SSSP,
                 song_id: song.id as i32,
-                title: song.title.clone(),
+                title: song.title,
                 song_type: song.song_type,
             });
         }

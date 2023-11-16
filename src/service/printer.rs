@@ -26,12 +26,12 @@ impl PrinterHandler {
             true => TableService::get_songs_detail(
                 songs,
                 PROFILE.markdown.picture.console_picture,
-                None,
+                &None,
             ),
             false => TableService::get_songs(
                 songs,
                 PROFILE.markdown.picture.console_picture,
-                None,
+                &None,
                 level,
             ),
         };
@@ -48,8 +48,8 @@ impl PrinterHandler {
     ) {
         // 输出到文件的都添加图片列,输出到 Console 的根据配置文件决定
         let pic_colum = match (
-            add.clone(),
-            output.clone(),
+            &add,
+            &output,
             PROFILE.markdown.picture.console_picture,
         ) {
             (None, None, console_picture) => console_picture,
@@ -57,8 +57,8 @@ impl PrinterHandler {
         };
 
         let table_vec = match detail {
-            true => TableService::get_songs_detail(songs, pic_colum, output.clone()),
-            false => TableService::get_songs(songs, pic_colum, output.clone(), level),
+            true => TableService::get_songs_detail(songs, pic_colum, &output),
+            false => TableService::get_songs(songs, pic_colum, &output, level),
         };
 
         // 输出到文件

@@ -44,10 +44,10 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
 }
 
 pub mod entity {
-    use clap::ValueEnum;
     use std::cmp::Ordering;
     use std::fmt::Display;
 
+    use clap::ValueEnum;
     use image::Rgba;
     use serde::{Deserialize, Serialize};
 
@@ -139,7 +139,7 @@ pub mod entity {
         return (ds * (f32::min(achievement, 100.5f32) / 100.0) * base_ra) as i32;
     }
 
-    #[derive(ValueEnum, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Clone)]
+    #[derive(ValueEnum, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
     pub enum LevelLabel {
         Basic = 0,
         Advanced = 1,

@@ -17,8 +17,8 @@ pub fn create_dir(path: &PathBuf) {
     }
 }
 /// 去除文件可能存在的拓展名
-pub fn remove_extension(filename: &str) -> String {
-    let path = Path::new(filename);
+pub fn remove_extension(filename: String) -> String {
+    let path = Path::new(&filename);
     let stem = path.file_stem().unwrap();
     stem.to_string_lossy().to_string()
 }

@@ -191,7 +191,7 @@ pub mod entity {
         /// 获得当前歌曲的文档类
         pub fn document(&self) -> Result<Document, serde_json::Error> {
             let doc = doc!(
-                Self::field(SongField::Id) => self.id.clone() as u64,
+                Self::field(SongField::Id) => self.id as u64,
                 Self::field(SongField::Keyword) => &*self.title.to_lowercase(),
                 Self::field(SongField::Title) => &*self.title,
                 Self::field(SongField::SongType) => &*self.song_type,

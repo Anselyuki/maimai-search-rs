@@ -1,5 +1,4 @@
 use rusttype::{point, Scale};
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::utils::file::get_adobe_simhei_font;
 
@@ -49,7 +48,7 @@ pub fn get_ra_pic(rating: u32) -> String {
 /// # 截断过长的歌曲标题
 pub fn change_column_width(raw_title: &str, max_width: i32) -> String {
     let mut title = String::new();
-    for (_, grapheme) in raw_title.grapheme_indices(true) {
+    for grapheme in raw_title.chars() {
         let font = get_adobe_simhei_font();
         let glyphs: Vec<_> = font
             .layout(title.as_str(), Scale::uniform(16.0), point(0.0, 0.0))
@@ -62,7 +61,7 @@ pub fn change_column_width(raw_title: &str, max_width: i32) -> String {
             title.pop().unwrap();
             return format!("{}...", title);
         }
-        title.push_str(grapheme);
+        title.push(grapheme);
     }
     title
 }

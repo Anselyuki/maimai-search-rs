@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::exit;
 
 use log::{error, warn};
-use prettytable::{row, Cell, Row, Table};
+use prettytable::{Cell, row, Row, Table};
 
 use crate::clients::song_data::entity::Song;
 use crate::clients::user_data::entity::LevelLabel;
@@ -64,7 +64,7 @@ impl TableService {
     pub fn get_songs(
         songs: Vec<Song>,
         pic_colum: bool,
-        output: Option<String>,
+        output: &Option<String>,
         level: Option<LevelLabel>,
     ) -> Vec<SongTable> {
         let mut table = Table::new();
@@ -80,8 +80,8 @@ impl TableService {
             .max()
             .unwrap_or(0);
 
-        if let Some(chart_level) = level.clone() {
-            let cell = &DIFFICULT_NAME[chart_level as usize];
+        if let Some(chart_level) = &level {
+            let cell = &DIFFICULT_NAME[*chart_level as usize];
             header.add_cell(cell.clone());
         } else {
             for difficult in &DIFFICULT_NAME[..chart_count] {
@@ -100,7 +100,7 @@ impl TableService {
 
             let mut table_data = match pic_colum {
                 true => {
-                    let pic_url = Self::get_song_picture(&song, output.clone());
+                    let pic_url = Self::get_song_picture(&song, &output);
                     row![
                         pic_url,
                         song.id,
@@ -115,7 +115,7 @@ impl TableService {
             };
 
             // 指定难度的谱面
-            if let Some(chart_level) = level.clone() {
+            if let Some(chart_level) = level{
                 let index = chart_level as usize;
                 table_data.add_cell(Cell::new(
                     Self::get_level_str(&song.ds[index], &song.level[index])
@@ -144,7 +144,7 @@ impl TableService {
     pub fn get_songs_detail(
         songs: Vec<Song>,
         pic_colum: bool,
-        output: Option<String>,
+        output: &Option<String>,
     ) -> Vec<SongTable> {
         let mut table_vec = Vec::new();
         let mut song_map: HashMap<String, Vec<Song>> = HashMap::new();
@@ -152,7 +152,7 @@ impl TableService {
         // 将 DX 谱和标准谱合在一起
         for song in songs {
             let mut song_vec = song_map
-                .get(&song.clone().title)
+                .get(&song.title)
                 .unwrap_or(&vec![])
                 .to_vec();
             song_vec.push(song.clone());
@@ -177,7 +177,7 @@ impl TableService {
             });
 
             // 表格内容
-            for song in songs.clone() {
+            for song in songs.iter() {
                 let mut row = row![
                     format!("{:5}", song.id),
                     song.title,
@@ -188,7 +188,7 @@ impl TableService {
                 ];
                 // 插入图片 URL
                 if pic_colum {
-                    let pic_url = Self::get_song_picture(&song, output.clone());
+                    let pic_url = Self::get_song_picture(&song, output);
                     row.insert_cell(0, Cell::new(&*pic_url));
                 }
                 table.add_row(row);
@@ -217,7 +217,7 @@ impl TableService {
     /// 如果开启了本地化图片并且输出有值则会执行文件操作,图片信息经拼接得到例子如下:
     ///
     /// `![PANDORA PARADOXXX](https://www.diving-fish.com/covers/00834.png)`
-    fn get_song_picture(song: &Song, output: Option<String>) -> String {
+    fn get_song_picture(song: &Song, output: &Option<String>) -> String {
         let config = &PROFILE.markdown.picture;
         if !config.local.enable || output.is_none() {
             return format!(
@@ -227,11 +227,11 @@ impl TableService {
         }
 
         // 如果开启了本地化图片并且输出有值
-        let output = remove_extension(output.unwrap().as_str());
+        let output_name = remove_extension(output.clone().unwrap());
         // 是否开启绝对路径
         let mut absolute = &PROFILE.markdown.picture.local.absolute;
         let res_dir = match &PROFILE.markdown.picture.local.path {
-            None => LAUNCH_PATH.join(&output),
+            None => LAUNCH_PATH.join(&output_name),
             Some(path) => {
                 if !absolute {
                     warn!("开启自定义资源目录时不支持相对路径引用");
@@ -242,7 +242,7 @@ impl TableService {
         };
 
         if !res_dir.exists() {
-            if let Err(error) = create_dir(res_dir.clone()) {
+            if let Err(error) = create_dir(&res_dir) {
                 error!("创建图片文件夹失败\n[Cause]:{:?}", error);
                 exit(exitcode::IOERR)
             }
@@ -270,7 +270,7 @@ impl TableService {
             if *absolute {
                 res_dir.display().to_string()
             } else {
-                output
+                output_name
             },
             filename
         )
