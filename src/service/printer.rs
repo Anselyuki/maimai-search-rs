@@ -47,11 +47,7 @@ impl PrinterHandler {
         level: Option<LevelLabel>,
     ) {
         // 输出到文件的都添加图片列,输出到 Console 的根据配置文件决定
-        let pic_colum = match (
-            &add,
-            &output,
-            PROFILE.markdown.picture.console_picture,
-        ) {
+        let pic_colum = match (&add, &output, PROFILE.markdown.picture.console_picture) {
             (None, None, console_picture) => console_picture,
             _ => true,
         };

@@ -6,7 +6,7 @@ use std::path::Path;
 use std::process::exit;
 
 use log::{error, warn};
-use prettytable::{Cell, row, Row, Table};
+use prettytable::{row, Cell, Row, Table};
 
 use crate::clients::song_data::entity::Song;
 use crate::clients::user_data::entity::LevelLabel;
@@ -115,7 +115,7 @@ impl TableService {
             };
 
             // 指定难度的谱面
-            if let Some(chart_level) = level{
+            if let Some(chart_level) = level {
                 let index = chart_level as usize;
                 table_data.add_cell(Cell::new(
                     Self::get_level_str(&song.ds[index], &song.level[index])
@@ -147,16 +147,12 @@ impl TableService {
         output: &Option<String>,
     ) -> Vec<SongTable> {
         let mut table_vec = Vec::new();
-        let mut song_map: HashMap<String, Vec<Song>> = HashMap::new();
-
+        let mut song_map: HashMap<&str, Vec<&Song>> = HashMap::new();
         // 将 DX 谱和标准谱合在一起
-        for song in songs {
-            let mut song_vec = song_map
-                .get(&song.title)
-                .unwrap_or(&vec![])
-                .to_vec();
-            song_vec.push(song.clone());
-            song_map.insert(song.title, song_vec);
+        for song in songs.iter() {
+            song_map.entry(&song.title)
+                .or_insert_with(Vec::new)
+                .push(song);
         }
 
         for (title, songs) in song_map {
@@ -289,7 +285,7 @@ impl TableService {
     }
 
     /// 每张谱面的详细信息
-    fn get_chart_table(song: Song) -> SongTable {
+    fn get_chart_table(song: &Song) -> SongTable {
         let mut table = Table::new();
         let mut title = row![
             "难度",
