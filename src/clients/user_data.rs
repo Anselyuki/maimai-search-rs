@@ -45,7 +45,6 @@ pub fn get_b50_data(username: &str) -> Result<B50Response, Box<dyn Error>> {
 
 pub mod entity {
     use std::cmp::Ordering;
-    use std::fmt::Display;
 
     use clap::ValueEnum;
     use image::Rgba;
@@ -136,30 +135,33 @@ pub mod entity {
             a if a < 100.5 => 21.6,
             _ => 22.4,
         };
-        return (ds * (f32::min(achievement, 100.5f32) / 100.0) * base_ra) as i32;
+        return (ds * f32::min(achievement, 100.5) / 100.0 * base_ra) as i32;
     }
 
-    #[derive(ValueEnum, Serialize, Deserialize, Ord, PartialOrd, Eq, PartialEq, Copy, Clone)]
+    #[derive(
+        ValueEnum,
+        Serialize,
+        Deserialize,
+        strum_macros::Display,
+        Ord,
+        PartialOrd,
+        Eq,
+        PartialEq,
+        Copy,
+        Clone,
+    )]
     pub enum LevelLabel {
+        #[strum(serialize = "BASIC")]
         Basic = 0,
+        #[strum(serialize = "ADVANCED")]
         Advanced = 1,
+        #[strum(serialize = "EXPERT")]
         Expert = 2,
+        #[strum(serialize = "MASTER")]
         Master = 3,
         #[serde(rename = "Re:MASTER")]
+        #[strum(serialize = "Re:MASTER")]
         ReMaster = 4,
-    }
-
-    impl Display for LevelLabel {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            let level_str = match self {
-                LevelLabel::Basic => "BASIC",
-                LevelLabel::Advanced => "ADVANCED",
-                LevelLabel::Expert => "EXPERT",
-                LevelLabel::Master => "MASTER",
-                LevelLabel::ReMaster => "Re:MASTER",
-            };
-            write!(f, "{}", level_str)
-        }
     }
 
     impl LevelLabel {

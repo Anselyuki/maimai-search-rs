@@ -1,9 +1,10 @@
+use std::ops::Index;
+
 use maimai_search_lib::clients::song_data::search_songs_by_id;
 use maimai_search_lib::clients::user_data::entity::{
-    compute_ra, ChartInfoResponse, ChartRate, LevelLabel,
+    ChartInfoResponse, ChartRate, compute_ra, LevelLabel,
 };
 use maimai_search_lib::service::maimai_best_50::{BestList, DrawBest};
-use std::ops::Index;
 
 fn main() {
     let sd_songs_id = [
@@ -70,20 +71,14 @@ fn create_chart_info_responses(song_ids: &[(i32, LevelLabel)], size: usize) -> B
     let mut chart_info_responses = BestList::new(size);
     for (song_id, level_label) in song_ids {
         if let Some(song) = search_songs_by_id(*song_id as usize) {
-            let ds = match level_label {
-                LevelLabel::Basic => *song.ds.index(0),
-                LevelLabel::Advanced => *song.ds.index(1),
-                LevelLabel::Expert => *song.ds.index(2),
-                LevelLabel::Master => *song.ds.index(3),
-                LevelLabel::ReMaster => *song.ds.index(4),
-            };
+            let ds = *song.ds.index(*level_label as usize);
             chart_info_responses.push(ChartInfoResponse {
                 achievements: 101.0,
                 ds,
                 dx_score: 0,
                 fc: "APp".to_string(),
                 fs: "FSDp".to_string(),
-                level: (song.level.last().unwrap()).parse().unwrap(),
+                level: String::from(song.level.last().unwrap()),
                 level_label: *level_label,
                 ra: compute_ra(ds, 101.0),
                 rate: ChartRate::SSSP,

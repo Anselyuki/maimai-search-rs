@@ -44,7 +44,6 @@ pub fn search_songs_by_title(param: &str, count: usize) -> Vec<Song> {
 }
 
 pub mod entity {
-    use std::fmt;
     use std::io::Error;
     use std::process::exit;
 
@@ -133,37 +132,26 @@ pub mod entity {
     }
 
     /// 歌曲字段枚举,主要添加 Keywords 对 Tantivy 定制查询提供方便
-    #[derive(PartialEq)]
+    #[derive(PartialEq, strum_macros::Display)]
     pub enum SongField {
+        #[strum(serialize = "id")]
         Id,
+        #[strum(serialize = "keyword")]
         Keyword,
+        #[strum(serialize = "title")]
         Title,
+        #[strum(serialize = "song_type")]
         SongType,
+        #[strum(serialize = "ds")]
         Ds,
+        #[strum(serialize = "level")]
         Level,
+        #[strum(serialize = "cids")]
         Cids,
+        #[strum(serialize = "charts")]
         Charts,
+        #[strum(serialize = "basic_info")]
         BasicInfo,
-    }
-
-    impl fmt::Display for SongField {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(
-                f,
-                "{}",
-                match self {
-                    SongField::Id => "id",
-                    SongField::Keyword => "keyword",
-                    SongField::Title => "title",
-                    SongField::SongType => "song_type",
-                    SongField::Ds => "ds",
-                    SongField::Level => "level",
-                    SongField::Cids => "cids",
-                    SongField::Charts => "charts",
-                    SongField::BasicInfo => "basic_info",
-                }
-            )
-        }
     }
 
     impl Song {
@@ -192,7 +180,7 @@ pub mod entity {
         pub fn document(&self) -> Result<Document, serde_json::Error> {
             let doc = doc!(
                 Self::field(SongField::Id) => self.id as u64,
-                Self::field(SongField::Keyword) => &*self.title.to_lowercase(),
+                Self::field(SongField::Keyword) => self.title.to_lowercase(),
                 Self::field(SongField::Title) => &*self.title,
                 Self::field(SongField::SongType) => &*self.song_type,
                 Self::field(SongField::Ds) => serde_json::to_string(&self.ds)?,
@@ -217,66 +205,41 @@ pub mod entity {
 
         /// 从文档类转换为实体类(反序列化)
         pub fn from_document(retrieved_doc: &Document) -> Result<Song, Error> {
-            let schema = SONG_SCHEMA.clone();
+            macro_rules! deserialize_field {
+                ($doc:expr, $field:expr, $type:ty) => {
+                    serde_json::from_str::<$type>(
+                        get_field!($doc, $field)
+                            .as_text()
+                            .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
+                    )
+                    .expect("反序列化失败")
+                };
+            }
+            macro_rules! get_field {
+                ($retrieved_doc:expr, $field:expr) => {
+                    $retrieved_doc
+                        .get_first(SONG_SCHEMA.get_field($field).expect("获取字段失败"))
+                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                };
+            }
             Ok(Song {
-                id: retrieved_doc
-                    .get_first(schema.get_field("id").expect("获取字段失败"))
-                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                id: get_field!(retrieved_doc, "id")
                     .as_u64()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
                     as usize,
-                title: retrieved_doc
-                    .get_first(schema.get_field("title").expect("获取字段失败"))
-                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                title: get_field!(retrieved_doc, "title")
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
                     .to_string(),
-                song_type: retrieved_doc
-                    .get_first(schema.get_field("song_type").expect("获取字段失败"))
-                    .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
+                song_type: get_field!(retrieved_doc, "song_type")
                     .as_text()
                     .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?
                     .to_string(),
-                ds: serde_json::from_str::<Vec<f32>>(
-                    retrieved_doc
-                        .get_first(schema.get_field("ds").expect("获取字段失败"))
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
-                        .as_text()
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
-                )
-                .expect("反序列化失败"),
-                level: serde_json::from_str::<Vec<String>>(
-                    retrieved_doc
-                        .get_first(schema.get_field("level").expect("获取字段失败"))
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
-                        .as_text()
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
-                )
-                .expect("反序列化失败"),
-                cids: serde_json::from_str::<Vec<u32>>(
-                    retrieved_doc
-                        .get_first(schema.get_field("cids").expect("获取字段失败"))
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
-                        .as_text()
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
-                )
-                .expect("反序列化失败"),
-                charts: serde_json::from_str::<Vec<Chart>>(
-                    retrieved_doc
-                        .get_first(schema.get_field("charts").expect("获取字段失败"))
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
-                        .as_text()
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
-                )
-                .expect("反序列化失败"),
-                basic_info: serde_json::from_str::<BasicInfo>(
-                    retrieved_doc
-                        .get_first(schema.get_field("basic_info").expect("获取字段失败"))
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段不存在"))?
-                        .as_text()
-                        .ok_or(Error::new(std::io::ErrorKind::NotFound, "字段值为空"))?,
-                )
-                .expect("反序列化失败"),
+                ds: deserialize_field!(retrieved_doc, "ds", Vec<f32>),
+                level: deserialize_field!(retrieved_doc, "level", Vec<String>),
+                cids: deserialize_field!(retrieved_doc, "cids", Vec<u32>),
+                charts: deserialize_field!(retrieved_doc, "charts", Vec<Chart>),
+                basic_info: deserialize_field!(retrieved_doc, "basic_info", BasicInfo),
             })
         }
     }
