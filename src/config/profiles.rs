@@ -6,44 +6,51 @@ use log::{error, info, warn};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use crate::config::consts::CONFIG_PATH;
+use crate::config::consts::{CONFIG_PATH, PROFILE};
 
 /// 配置文件解析结果
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Profile {
     pub remote_api: RemoteAPIConfig,
     pub markdown: MarkdownConfig,
 }
 
 /// 远程配置
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RemoteAPIConfig {
     pub json_url: String,
     pub resource_url: String,
+    pub maimaidxprober: MaimaiDXProberConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MaimaiDXProberConfig {
+    pub data_url: String,
+    pub username: Option<String>,
 }
 
 /// markdown 配置
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MarkdownConfig {
     pub picture: PictureConfig,
 }
 
 /// 远程配置
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PictureConfig {
     pub local: LocalPictureConfig,
     pub remote: RemotePictureConfig,
     pub console_picture: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalPictureConfig {
     pub enable: bool,
     pub path: Option<String>,
     pub absolute: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RemotePictureConfig {
     pub prefix_url: String,
 }
@@ -67,10 +74,26 @@ impl Profile {
         match file.write_all(yaml.as_bytes()) {
             Ok(_) => {
                 info!("已成功创建配置文件:{}", path.display());
-                open::that(path).unwrap();
             }
             Err(e) => {
                 error!("无法写入文件{:?}", e);
+                exit(exitcode::IOERR);
+            }
+        }
+    }
+
+    pub fn open_config() {
+        let path = &CONFIG_PATH.join("config.yml");
+        if !path.exists() {
+            info!("不存在已有的配置文件,请使用 config --detail(-d) 标志来创建默认配置文件");
+            exit(exitcode::OK)
+        }
+        match open::that(path) {
+            Ok(_) => {
+                info!("已成功打开配置文件:{}", path.display());
+            }
+            Err(e) => {
+                error!("无法打开文件{:?}", e);
                 exit(exitcode::IOERR);
             }
         }
@@ -99,6 +122,9 @@ impl Profile {
         serde_yaml::from_str(&yaml_value)
             .unwrap_or_else(|error| Self::error_handler(error.to_string()))
     }
+    pub fn get_username() -> Option<String> {
+        PROFILE.remote_api.maimaidxprober.username.clone()
+    }
 
     /// 处理失败处理,返回默认配置文件
     fn error_handler(error: String) -> Profile {
@@ -113,6 +139,11 @@ impl Profile {
             remote_api: RemoteAPIConfig {
                 json_url: "https://www.diving-fish.com/api/maimaidxprober/music_data".to_string(),
                 resource_url: "https://www.diving-fish.com/maibot/static.zip".to_string(),
+                maimaidxprober: MaimaiDXProberConfig {
+                    data_url: "https://www.diving-fish.com/api/maimaidxprober/query/player"
+                        .to_string(),
+                    username: None,
+                },
             },
             markdown: MarkdownConfig {
                 picture: PictureConfig {

@@ -4,65 +4,42 @@
 
 > 数据来源[舞萌 DX 查分器](https://github.com/Diving-Fish/maimaidx-prober)，感谢大佬提供的 API 接口与数据
 
-## 核心功能
-
-对于接收的部分歌曲信息进行检索,由于本人是 Rust 初学者，故从自己的需求入手写一个小工具，仅支持命令行模式请求
+主要的功能是查找歌曲的难度，以及查找难度的歌曲,由于本人是 Rust 初学者，故从自己的需求入手写一个小工具，仅支持命令行模式请求
 
 ## 注意事项
 
-项目使用了 SQLite 数据库，在 MacOS 与 Linux/UNIX 平台上遵守 XDG 规范，数据库与配置文件均放置于 `~/.config/maimai-search`
+项目使用了 Tantivy 搜索引擎
+
+> Tantivy是Rust实现的本地搜索库，功能对标 lucene，该库的优点在于纯 Rust 实现，性能高(lucene 的2-3倍)，资源占用低，社区活跃。
+
+在 MacOS 与 Linux/UNIX 平台上遵守 XDG 规范，数据库与配置文件均放置于 `~/.config/maimai-search`
 路径下
 
 可以选择把本程序放置于 PATH 下，或者在使用时指定路径
 
-### 安装
+## 主要功能
 
-> 更新在线数据（只需更新一次即可）
+### 更新歌曲数据
 
-#### Linux / macOS
+> 只要在使用前运行一次即可，不需要每次都运行
+
 ```bash
 maimai-search update
 ```
 
-#### Windows
-```bash
-maimai-search.exe update
-```
-## 主要功能
+通过添加`--md`参数可以将歌曲信息输出为 Markdown 表格
 
-### 模糊搜索
-输入希望查询的歌名的部分信息（比如 `初音` ）
+### B50 图片绘制
 
-```bash
-maimai-search 初音
-```
+这部分复刻了 [mai-bot](https://github.com/Diving-Fish/mai-bot) 的图片绘制功能,将 Python 的`Pillow`库替换为了 Rust
+的`images`库与`imageproc`库,以此实现了绘制性能的提升
 
-显示模糊搜索可匹配到的n个结果（n为参数）
+![B50](docs/b50_simple.png)
 
-```bash
-maimai-search S -c 200
-```
-### ID搜索/精确搜索
+> 生成这张图片的示例代码在`examples/b50.rs`中
 
-```bash
-maimai-search id 11311
-```
-
-### 输出查询对象的铺面信息
-
-```bash
-maimai-search id 11311 -d
-```
-
-### ~~Markdown格式输出查询结果~~（重构中）
-
-```bash
-maimai-search id 11311 -m
-```
 ## TODO:
 
-- 推分 list
-  - 添加推分 list 功能，可以将自己的推分列表导入到数据库中
-- 重构Markdown功能
-- 重构数据库类型
-- 加入b50生成功能（利用pyo3 module）
+### 推分 list
+
+添加推分 list 功能，可以将自己的推分列表导入到数据库中
