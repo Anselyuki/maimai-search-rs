@@ -7,6 +7,8 @@ pub struct CalculateResult {
     pub slide_value: Vec<f32>,
     pub touch_value: Vec<f32>,
     pub break_value: Vec<f32>,
+    pub basic_value: f32,
+    pub extra_value: f32,
 }
 // 接收一个变量，类型是notes
 // unused function
@@ -52,6 +54,8 @@ pub fn calculator(notes: &Vec<u32>) -> CalculateResult {
         slide_value: slide_value.to_vec(),
         touch_value: touch_value.to_vec(),
         break_value: break_value.to_vec(),
+        basic_value,
+        extra_value,
     }
 }
 
@@ -60,6 +64,7 @@ mod tests {
     use super::*;
     #[test]
     fn test_calculator() {
+        // 参考 生命不祥
         let notes = vec![537, 53, 137, 94, 9];
         let result = calculator(&notes);
         // 输出结果
@@ -68,5 +73,10 @@ mod tests {
         println!("slide_value: {:?}", result.slide_value);
         println!("touch_value: {:?}", result.touch_value);
         println!("break_value: {:?}", result.break_value);
+        // 通过数据测试结果反推50great和100great的额外加分比重
+        // TODO: 通过测试结果反推额外加分比重
+        // 根据DivingFish的数据，好像有点问题，算出来数值是个负数
+        // let extra100greatvalue = 0.2959113;
+        // let extra50greatvalue = 0.2540002;
     }
 }
