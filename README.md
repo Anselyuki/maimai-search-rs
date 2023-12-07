@@ -27,8 +27,6 @@
 maimai-search update
 ```
 
-通过添加`--md`参数可以将歌曲信息输出为 Markdown 表格
-
 ### B50 图片绘制
 
 这部分复刻了 [mai-bot](https://github.com/Diving-Fish/mai-bot) 的图片绘制功能,将 Python 的`Pillow`库替换为了 Rust
@@ -38,8 +36,48 @@ maimai-search update
 
 > 生成这张图片的示例代码在`examples/b50.rs`中
 
+### 歌曲查询
+
+#### 模糊查询
+
+可以输入歌曲部分名称查询歌曲的简单信息
+
+> 该查询支持简繁自动转换
+
+```bash
+maimai-search 生命
+```
+
+#### ID查询
+
+在已知某首歌ID的情况下可以使用ID精确查询
+
+```bash
+maimai-search id 11311
+```
+
+#### 详细查询
+
+通过添加`-d`参数可以输出歌曲的铺面信息
+
+```bash
+maimai-search id 11311 -d
+```
+
+### Markdown格式输出
+
+通过添加`md`参数可以将歌曲信息输出为 Markdown 表格
+
+```bash
+maimai-search md id 11311 -d
+```
+
 ## TODO:
 
 ### 推分 list
 
 添加推分 list 功能，可以将自己的推分列表导入到数据库中
+
+### 计算器 Calculator
+
+添加铺面分值计算器，可以计算歌曲的Tap、Break等各种Notes的分值
