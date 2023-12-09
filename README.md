@@ -50,10 +50,10 @@ maimai-search 生命
 
 #### ID查询
 
-在已知某首歌ID的情况下可以使用ID精确查询
+在已知某首歌ID的情况下可以使用ID精确查询。支持多个ID检索
 
 ```bash
-maimai-search id 11311
+maimai-search id 11311 11571
 ```
 
 #### 详细查询
