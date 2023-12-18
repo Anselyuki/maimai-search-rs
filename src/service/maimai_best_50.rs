@@ -1,16 +1,16 @@
 use std::ops::Index;
 use std::path::PathBuf;
 
-use image::imageops::{overlay, FilterType};
 use image::{DynamicImage, ImageError, ImageFormat, Pixel, Rgba, RgbaImage};
+use image::imageops::{FilterType, overlay};
 use imageproc::drawing::{draw_filled_rect_mut, draw_polygon_mut, draw_text_mut};
 use imageproc::map::map_colors_mut;
 use imageproc::point::Point;
 use imageproc::rect::Rect;
 use rusttype::Scale;
 
-use crate::clients::user_data::entity::{compute_ra, ChartInfoResponse};
-use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH};
+use crate::clients::user_data::entity::{ChartInfoResponse, compute_ra};
+use crate::config::consts::{CONFIG_PATH, LAUNCH_PATH, PROFILE};
 use crate::utils::file::{get_adobe_simhei_font, get_msyh_font};
 use crate::utils::image::{change_column_width, get_ra_pic, string_to_half_width};
 
@@ -159,7 +159,7 @@ impl DrawBest {
         for num in 0..self.dx_best.len() {
             let column = 75i64
                 + (ITEM_WIDTH * (num % 3 + 7) as i32 + HORIZONTAL_SPACING * (num % 3) as i32)
-                    as i64;
+                as i64;
             let row = 120i64
                 + (ITEM_HEIGHT * (num / 3) as i32 + VERTICAL_SPACING * (num / 3) as i32) as i64;
             // 3 列一行排列的 B15
@@ -196,7 +196,7 @@ impl DrawBest {
         for num in self.dx_best.len()..self.dx_best.size {
             let column = 75i64
                 + (ITEM_WIDTH * (num % 3 + 7) as i32 + HORIZONTAL_SPACING * (num % 3) as i32)
-                    as i64;
+                as i64;
             let row = 120i64
                 + (ITEM_HEIGHT * (num / 3) as i32 + VERTICAL_SPACING * (num / 3) as i32) as i64;
             self.draw_item_shadow_mut(column, row);
@@ -321,7 +321,7 @@ impl DrawBest {
                 chart.ds,
                 compute_ra(chart.ds, chart.achievements)
             )
-            .as_str(),
+                .as_str(),
         );
         draw_text_mut(
             &mut cover,
@@ -459,7 +459,9 @@ impl DrawBest {
 
         let path = LAUNCH_PATH.join(format!("{}-b50.png", self.username));
         self.img.save_with_format(&path, ImageFormat::Png)?;
-        open::that(&path).unwrap();
+        if PROFILE.remote_api.maimaidxprober.open {
+            open::that(&path).unwrap();
+        }
         Ok(())
     }
 }

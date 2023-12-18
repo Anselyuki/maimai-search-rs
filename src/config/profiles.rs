@@ -27,6 +27,7 @@ pub struct RemoteAPIConfig {
 pub struct MaimaiDXProberConfig {
     pub data_url: String,
     pub username: Option<String>,
+    pub open: bool,
 }
 
 /// markdown 配置
@@ -143,6 +144,7 @@ impl Profile {
                     data_url: "https://www.diving-fish.com/api/maimaidxprober/query/player"
                         .to_string(),
                     username: None,
+                    open: true,
                 },
             },
             markdown: MarkdownConfig {
